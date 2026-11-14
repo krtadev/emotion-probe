@@ -1,8 +1,13 @@
 # Does the model read the user's emotion?
 
-A linear probe on Qwen2.5-7B-Instruct's hidden state recovers a user's **implicit** emotion
-(frustrated / anxious / happy / neutral, no emotion words in the text) with **100% held-out
-accuracy from layer 19**, against 78% for a word-count classifier and 25% for shuffled labels.
+A linear probe on Qwen2.5-7B-Instruct's hidden state reads a user's **implicit** emotion
+(frustrated / anxious / happy / neutral, no emotion words in the text) with **94% accuracy on
+situations it never saw, even when topic gives nothing away**: the same 40 situations are each
+written in all four emotions. A word-count classifier gets 58% on that set, and shuffled labels about 20%.
+
+On an easier first set of 200 messages, where topic and emotion overlap, the probe scores 100%
+(layer 19). That number is inflated by the overlap: the probe trained there recognises only 38% of
+neutral messages on the matched set, because it had partly learned "neutral = factual question".
 
 **Interactive write-up:** https://krtadev.github.io/emotion-probe/ (source in `docs/index.html`)
 
@@ -48,7 +53,7 @@ about 90 s for probes. **Disconnect and delete the runtime afterwards.**
 - **Sanity check:** layer 0 = chance. The last token is the same template token for every
   message.
 
-## Results (Colab A100 run)
+## Results on the first, easier set (Colab A100 run)
 
 | layer | probe | shuffled |
 |---|---|---|
