@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en" data-theme="light" style="color-scheme:light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reading the user's emotion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* warm ivory + clay palette; the three emotion hues are validated for colour-blind separation (all pairs) in both modes */
+:root{
+  color-scheme:light;
+  --bg:#faf9f5;--surface:#ffffff;--ink:#141413;--ink-2:#5e5d59;--ink-3:#8f8d86;--hair:#e8e6dc;
+  --accent:#d97757;--accent-soft:#f1d3c6;--val:#4a86c8;--ref:#c2c0b6;
+  --anxious:#2f6fb6;--frustrated:#c4633f;--happy:#d6a21e;--neutral:#aeaca3;
+  --sans:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"DM Mono",ui-monospace,Consolas,monospace;
+}
+
+*{box-sizing:border-box}
+html{background:#faf9f5}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:0 16px}
+.top{padding:40px 0 32px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.eyebrow{font:500 11px/1 var(--mono);letter-spacing:.01em;color:var(--ink-3)}
+h1{font:500 32px/1.15 var(--sans);letter-spacing:-.025em;margin:10px 0 6px}
+.dek{color:var(--ink-2);margin:0;font-size:14px;max-width:720px}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:28px 0 20px}
+.step{font:500 11px/1 var(--mono);letter-spacing:.01em;color:var(--ink-3);transition:color .3s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.step i{display:block;height:2px;background:var(--hair);margin-bottom:8px;position:relative;overflow:hidden;border-radius:2px}
+.step i b{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);transition:width .25s linear}
+.step.on{color:var(--ink)}
+.stage{display:grid;grid-template-columns:minmax(0,1fr)}
+.scene{grid-area:1/1;min-width:0;opacity:0;visibility:hidden;transform:translateY(6px);transition:opacity .5s ease,transform .5s ease,visibility 0s .5s}
+.scene.on{opacity:1;visibility:visible;transform:none;transition:opacity .5s ease,transform .5s ease}
+h2{font:500 22px/1.2 var(--sans);letter-spacing:-.015em;margin:0 0 4px}
+.cap{color:var(--ink-3);font-size:13px;margin:0 0 18px}
+.stats{display:flex;gap:40px;margin:0 0 10px}
+.stat span{display:block;font:500 10.5px/1 var(--mono);letter-spacing:.1em;color:var(--ink-3);margin-bottom:6px}
+.stat b{font:400 26px var(--mono);font-variant-numeric:tabular-nums;font-weight:400}
+svg text{font:11px var(--mono);fill:var(--ink-3)}
+svg .lbl{font:500 12px var(--sans);fill:var(--ink)}
+/* contrast scene */
+.krows{min-height:262px}
+.krow{display:grid;grid-template-columns:26px 92px minmax(0,1fr) 150px;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--hair);opacity:0;transform:translateY(4px);transition:opacity .35s,transform .35s}
+.krow:last-child{border-bottom:1px solid var(--hair)}
+.krow.on{opacity:1;transform:none}
+.krow .nm{color:var(--ink-2);font-size:13px}
+.krow .txt{font-size:15px;line-height:1.4}
+.krow .read{font:12px var(--mono);text-align:right;color:var(--ink-3);opacity:0;transition:opacity .3s}
+.krow.done .read{opacity:1}
+.krow.done.ok .read{color:var(--ink-2)}
+.krow.done.no .read{color:var(--ink)}
+.krow.done.no .txt{text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:2px;text-underline-offset:4px}
+#k-ticker{grid-template-columns:repeat(32,1fr)}
+@media (max-width:680px){.krow{grid-template-columns:22px minmax(0,1fr) 92px}.krow .nm{display:none}}
+/* scene: messages (legacy) */
+.qhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+.qhead .score{font:400 22px var(--mono);font-variant-numeric:tabular-nums}
+.qhead .score small{color:var(--ink-3);font-size:12px;margin-left:6px}
+.msgcard{min-height:330px}
+.quote{font:400 26px/1.35 var(--sans);letter-spacing:-.015em;margin:8px 0 26px;max-width:760px}
+.quote:before{content:"\201C";color:var(--ink-3);margin-right:2px}.quote:after{content:"\201D";color:var(--ink-3)}
+.hintline{font:11px var(--mono);letter-spacing:.01em;color:var(--ink-3);margin:-14px 0 22px}
+.opt{display:grid;grid-template-columns:26px 120px 1fr 64px;gap:12px;align-items:center;padding:9px 0 11px;border-top:1px solid var(--hair)}
+.opt:last-of-type{border-bottom:1px solid var(--hair)}
+.key{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--hair);transition:all .25s}
+.key svg{display:block}
+.opt .nm{color:var(--ink-2);transition:color .25s}
+.opt .p{font:400 13px var(--mono);font-variant-numeric:tabular-nums;color:var(--ink-3);text-align:right}
+.bar{height:6px;border-radius:3px;background:var(--hair);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;width:0;border-radius:3px;transition:width .45s cubic-bezier(.2,.7,.2,1)}
+.opt.pick .nm{color:var(--ink);font-weight:500}.opt.pick .p{color:var(--ink)}
+.opt.pick .key{border-color:var(--ink-3)}
+.verdict{margin-top:12px;font:500 13px var(--sans);min-height:20px;opacity:0;transition:opacity .25s;color:var(--ink-2)}
+.verdict.show{opacity:1}
+.ticker{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin-top:22px}
+.ticker span{height:6px;border-radius:1.5px;background:var(--hair);transition:background .3s}
+.ticker span.now{background:var(--ink-3)}
+/* scene 1: clusters */
+.chead{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
+.chead .stats{margin:0}
+.insight{font:400 15px/1.45 var(--sans);color:var(--ink-2);margin:14px 0 4px;min-height:44px;transition:opacity .35s}
+.insight b{color:var(--ink);font-weight:500}
+#timeline .lk{cursor:pointer}
+#timeline .lk circle.dot{transition:r .3s,fill .3s}
+#timeline .lk text{font:500 11px var(--mono)}
+#timeline .lk.cur text{fill:var(--ink)}
+.halo{transition:transform 1.1s cubic-bezier(.6,0,.2,1),opacity .4s}
+.lg{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 6px}
+.lg span{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2)}
+#tip{position:fixed;pointer-events:none;z-index:9;max-width:300px;background:var(--surface);border:1px solid var(--hair);border-radius:10px;padding:9px 11px;font-size:13px;line-height:1.45;box-shadow:0 8px 24px rgba(20,20,19,.12);opacity:0;transition:opacity .12s}
+#tip .t{font:500 10.5px var(--mono);letter-spacing:.01em;color:var(--ink-3);margin-bottom:3px}
+/* scene 4: result */
+.end{text-align:center;padding:24px 0 8px}
+.hero{font:500 68px/1 var(--sans);letter-spacing:-.035em;margin:16px 0 10px;font-variant-numeric:tabular-nums}
+.hero .from{color:var(--ink-3)}.hero .arrow{color:var(--ink-3);font-size:.6em;margin:0 .25em;vertical-align:.12em}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);margin-top:36px;border-top:1px solid var(--hair);text-align:left}
+.facts div{padding:16px 16px 0;border-left:1px solid var(--hair)}.facts div:first-child{border-left:0;padding-left:0}
+.facts span{display:block;font:500 10.5px/1.3 var(--mono);letter-spacing:.01em;color:var(--ink-3);margin-bottom:8px}
+.facts b{font:400 20px var(--mono);font-variant-numeric:tabular-nums;font-weight:400}
+footer{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:28px;padding-top:14px;border-top:1px solid var(--hair);color:var(--ink-3);font-size:12px}
+.ctl{display:flex;gap:6px;flex-shrink:0}
+button{font:500 12px var(--mono);color:var(--ink-2);background:transparent;border:1px solid var(--hair);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .2s}
+button:hover{color:var(--ink);border-color:var(--ink-3)}
+/* pipeline animation */
+.pipe{width:min(880px,calc(100vw - 32px));margin:4px 0 34px;position:relative;left:50%;transform:translateX(-50%)}
+.pipe svg{display:block;width:100%;height:auto}
+.pipe text{font:13px var(--sans);fill:var(--ink-2)}
+.pipe .cap2{font:12px var(--mono);fill:var(--ink-3)}
+.pipe .msg{font:14px var(--sans);fill:var(--ink)}
+.pipe .chip{font:500 15px var(--sans)}
+.pipe .fade{transition:opacity .45s ease}
+.pipe .mv{transition:transform .9s cubic-bezier(.6,0,.2,1),opacity .45s ease}
+.pipe.top{width:100%;left:auto;transform:none;margin:26px 0 6px;padding:18px 10px 6px;background:var(--surface);border:1px solid var(--hair);border-radius:14px}
+/* research note */
+.sits{margin-top:44px;padding-top:18px;border-top:1px solid var(--hair)}
+.sits h3{font:500 13px/1.3 var(--sans);color:var(--ink-3);margin:0 0 8px}
+.note .sits p{font-size:14px;line-height:1.65;color:var(--ink-3);margin:0}
+.note .sits a{color:var(--ink-2);text-decoration-color:var(--hair)}
+.note{max-width:680px;margin:0 auto;padding:56px 0 96px;border-top:1px solid var(--hair)}
+.note h2{font-size:26px;letter-spacing:-.02em;margin:12px 0 6px}
+.note h3{font:500 17px/1.3 var(--sans);margin:34px 0 10px}
+.note .byline{color:var(--ink-3);font-size:13px;margin:0 0 28px}
+.note p{font-size:16.5px;line-height:1.7;margin:0 0 20px}
+.note strong{font-weight:600}
+.note a{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+.note code{font:13.5px var(--mono);background:var(--surface);border:1px solid var(--hair);border-radius:5px;padding:1px 5px}
+.tbl{width:100%;border-collapse:collapse;margin:6px 0 24px;font-size:14px}
+.tbl th,.tbl td{padding:8px 0;border-bottom:1px solid var(--hair);text-align:right}
+.tbl th{font:500 10.5px var(--mono);letter-spacing:.01em;color:var(--ink-3)}
+.tbl td{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tbl td:first-child,.tbl th:first-child{text-align:left;font-family:var(--sans)}
+@media (max-width:680px){
+  h1{font-size:26px}.stats{gap:22px}.stat b{font-size:20px}.quote{font-size:20px}
+  .opt{grid-template-columns:26px 90px 1fr 52px}.hero{font-size:44px}
+  .dek{font-size:13px}.qhead .score{font-size:18px}.facts b{font-size:17px}
+  .facts{grid-template-columns:1fr 1fr}.facts div{border-left:0;padding-left:0}
+  .steps .step{font-size:9.5px}footer{flex-direction:column;align-items:flex-start}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head>
+<body>
+<div id="tip"></div>
+<main class="wrap">
+ <div class="top">
+  <header>
+    <h1>The model reads how the user feels, even when they never say it</h1>
+    <p class="dek">Qwen2.5-7B-Instruct, a linear probe on one hidden state, and 360 user messages with every emotion word removed, 160 of them written so the topic gives nothing away. First how the test works, then what it found.</p>
+    <figure class="pipe top" aria-label="How the test works: a message goes in, the model reads it layer by layer, we take its state right before it replies, and one straight cut sorts that state into an emotion">
+      <svg id="pipe" viewBox="0 0 880 290"></svg>
+    </figure>
+    <nav class="steps">
+      <div class="step" data-s="clusters"><i><b></b></i>Clusters</div>
+      <div class="step" data-s="layers"><i><b></b></i>Depth</div>
+      <div class="step" data-s="contrast"><i><b></b></i>Contrast</div>
+      <div class="step" data-s="end"><i><b></b></i>Result</div>
+    </nav>
+  </header>
+
+  <div class="stage">
+    <section class="scene" id="contrast">
+      <div class="qhead"><span class="eyebrow" id="k-count"></span><span class="score" id="k-score"></span></div>
+      <h2 id="k-title"></h2>
+      <p class="cap">Same situation, four emotions, so topic gives nothing away &middot; probe at layer 22, tested only on situations it never trained on</p>
+      <div class="krows" id="k-rows"></div>
+      <div class="ticker" id="k-ticker"></div>
+    </section>
+
+    <section class="scene" id="layers">
+      <div class="stats">
+        <div class="stat"><span>Layer</span><b id="r-layer">0</b></div>
+        <div class="stat"><span>Easy set</span><b id="r-acc" style="color:var(--accent)">&ndash;</b></div>
+        <div class="stat"><span>Matched set</span><b id="r-mat">&ndash;</b></div>
+        <div class="stat"><span>Shuffled</span><b id="r-shuf">&ndash;</b></div>
+      </div>
+      <svg id="chart" viewBox="0 0 880 340" role="img" aria-label="Probe accuracy rising across layers"></svg>
+    </section>
+
+    <section class="scene" id="clusters">
+      <div class="chead">
+        <div class="stats">
+          <div class="stat"><span>Layer</span><b id="c-layer">4</b></div>
+          <div class="stat"><span>Probe accuracy</span><b id="c-acc">&ndash;</b></div>
+        </div>
+        <div class="lg" id="legend"></div>
+      </div>
+      <p class="insight" id="c-note"></p>
+      <svg id="scatter" viewBox="0 0 880 360" role="img" aria-label="Messages in the model's activation space, top two principal components"></svg>
+      <svg id="timeline" viewBox="0 0 880 96" role="img" aria-label="Probe accuracy across depth; click a layer"></svg>
+    </section>
+
+    <section class="scene end" id="end">
+      <div class="eyebrow">When topic can't help &middot; words alone to the model's hidden state</div>
+      <div class="hero"><span class="from">58%</span><span class="arrow">&rarr;</span>94%</div>
+      <p class="cap">Matched set: 40 situations &times; 4 emotions &middot; TF-IDF vs a linear probe at layer 22 &middot; tested on unseen situations</p>
+      <div class="facts">
+        <div><span>Easy set (200 msgs)</span><b>100%</b></div>
+        <div><span>Shuffled labels</span><b id="e-shuf">20%</b></div>
+        <div><span>Old probe &rarr; new set</span><b>79%</b></div>
+        <div><span>&hellip; on neutral</span><b>38%</b></div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <span>Qwen2.5-7B-Instruct &middot; residual stream at the last prompt token &middot; logistic probe, 5-fold CV &middot; hover the clusters to read messages &middot; ~25 min on Colab in total</span>
+    <span class="ctl"><button id="speed">1&times;</button><button id="replay">&#8635; Replay</button></span>
+  </footer>
+ </div>
+
+  <article class="note">
+    <div class="eyebrow">Research note</div>
+    <h2>Knowing how the user feels</h2>
+    <p class="byline">Qwen2.5-7B-Instruct &middot; 200 implicit-emotion messages plus a 160-message matched set &middot; November 2026</p>
+    <p>Personal assistants are supposed to adapt to the person in front of them. A frustrated user wants the fix, not another
+      explanation. An anxious one wants reassurance before details. Users rarely say how they feel, though. They repeat themselves,
+      answer in two words, or ask "is that normal?" at 2am. The question here is the simplest one underneath all of that: does
+      the model register the user's emotional state at all, before it writes a single word of its reply?</p>
+    <p>We wrote 200 short user messages, 50 each of <strong>frustrated</strong>, <strong>anxious</strong>, <strong>happy</strong>
+      and <strong>neutral</strong>, and removed every emotion word: no "annoyed", "worried", "excited" or "love". The emotion
+      has to come from behaviour and situation. "Third time asking this, the code still throws the same error" is frustration
+      without saying so. "My biopsy results come back tomorrow morning and I can't stop refreshing the portal" is anxiety. Each message
+      went through Qwen2.5-7B-Instruct inside its normal chat template, and we kept one vector per layer: the hidden state at the
+      very last prompt token, the point where the model is about to start its reply. That gives 29 snapshots of 3,584 numbers per
+      message.</p>
+    <p>Then we asked whether a straight line can separate the emotions in that space. The probe is a plain logistic regression,
+      after standardising and compressing each layer to 128 dimensions inside each training fold, scored on messages it never saw.
+      From layer 19 on it is right on <strong>every one of the 200 messages</strong>. Layer 0 sits at exactly chance, which is the
+      sanity check we wanted: the last token is the same template token for every message, so before any mixing there is nothing
+      to read. One layer later the probe is already at 86%, and it plateaus from layer 14. Two controls keep this honest. The same
+      probe trained on shuffled labels stays at <strong>25%</strong> at every layer. A word-count classifier (TF-IDF on 1- and
+      2-grams) given the raw text gets <strong>78%</strong>, so the model is doing more than spotting words like "again" or "!!!".</p>
+    <table class="tbl" id="tbl"></table>
+    <p>The geometry says something too. In the top two principal components, <strong>neutral and happy</strong> separate first,
+      already by layer 4, while frustrated and anxious stay tangled together until around layer 14. Deeper in, neutral messages
+      collapse into a tight ball: "no emotional signal" looks like a distinct state, not just the absence of one. Some anxious and
+      happy messages still overlap in those two dimensions even where the probe separates them perfectly, so part of the difference
+      lives beyond the top two components. That is why we probe instead of eyeballing a PCA plot. The class directions at layer 19
+      are all mutually negative, partly by construction. Relatively, happy and neutral are the most opposed (cosine &minus;0.51), and
+      anxious sits closest to neutral (&minus;0.18). That fits the data: many anxious messages are calm-sounding questions.</p>
+    <h3>Holding the topic fixed</h3>
+    <p>A perfect score on an easy set is the moment to get suspicious. In the first 200 messages emotion and topic travel together:
+      anxious messages are about biopsies and deadlines, and every neutral one is a factual question. A probe could score 100% by
+      reading what the message is <em>about</em>. So we wrote a second set where that can't help: <strong>40 situations, each written
+      four ways</strong>, for example the same cancelled flight said frustrated, anxious, happy and plainly. About half of every
+      emotion is phrased as a question or request, and there is no "!", "?", emoji or emotion word anywhere. Then we only ever test
+      on situations the probe has not seen.</p>
+    <p>The emotion survives. At layer 22 the probe reads <strong>94.4%</strong> of the matched messages correctly, 151 of 160.
+      Shuffled labels sit at 20%, message length alone gets 38%, and the word-count classifier falls from 78% to <strong>57.5%</strong>.
+      So once topic is taken away the words carry far less, and the model's own state still carries almost all of it. The curve also moves:
+      on the easy set the probe was at 86% one layer in, while on the matched set it climbs slowly and peaks in the
+      second half of the network. The early score was mostly wording, and the emotion itself is assembled later.</p>
+    <p>The matched set also exposed a flaw in the first probe. Trained on the easy set and applied to the new one, it still
+      recognises frustrated, anxious and happy 92&ndash;95% of the time, but only <strong>38% of neutral</strong> messages. Most of the
+      rest it calls anxious. It had partly learned that neutral means "a factual question", so a flat statement like "I have an
+      interview tomorrow at nine for a data analyst role" looks worried to it. That's arguably not even wrong. The few errors the
+      matched-set probe still makes are exactly these: neutral statements about situations that are loaded in themselves.</p>
+    <h3>What this does not show yet</h3>
+    <p>It doesn't show the model <em>uses</em> the emotion. A representation can sit in the residual stream without changing the
+      reply, and that gap between knowing and using is the actual research question. Both sets are small and written by a single
+      LLM author, and each message is a single turn. The probe's flexibility (100 to 128 dimensions on 128 to 200 training examples)
+      hasn't been checked with a control task, and a strong sentence-embedding baseline hasn't been run yet.</p>
+    <p>Next steps: multi-turn chats where the emotion builds up across several messages, a sentence-embedding baseline, then the
+      behavioural test. That means scoring each reply for whether it adapts (shorter, acknowledges, changes approach), comparing that
+      with the probe, and finally steering along the probe direction to see whether adaptation follows. Both runs together took about
+      25 minutes of Colab GPU time, under 3 compute units.</p>
+    <div class="sits">
+      <h3>Where this sits</h3>
+      <p>None of the method here is new, and it isn't meant to be. Reading a concept off hidden states with a linear classifier goes back to
+        <a href="https://arxiv.org/abs/1610.01644">Alain &amp; Bengio (2016)</a>. How to read such probes carefully, and when they
+        mislead, is set out in <a href="https://arxiv.org/abs/1909.03368">Hewitt &amp; Liang (2019)</a> and
+        <a href="https://arxiv.org/abs/2102.12452">Belinkov (2022)</a>. The idea that concepts sit along directions in activation space is
+        <a href="https://arxiv.org/abs/2311.03658">Park et al. (2023)</a>, and <a href="https://arxiv.org/abs/2310.01405">Zou et al. (2023)</a>
+        showed such directions can steer behaviour. Closer to this note, <a href="https://arxiv.org/abs/2406.07882">Chen et al. (2024)</a>
+        read chatbots' internal models of the user, <a href="https://arxiv.org/abs/2502.05489">Tak et al. (2025)</a> located emotion
+        inference in middle layers, and <a href="https://arxiv.org/abs/2604.07729">Anthropic (2026)</a> mapped emotion representations
+        inside Claude, including separate ones for the user and the assistant. This is a small replication in that line. The narrow
+        twist is that the emotion is the <em>user's</em>, is never stated, and is separated from topic with a matched set.</p>
+    </div>
+  </article>
+</main>
+<script>
+const D = {"model": "Qwen2.5-7B-Instruct", "n": 200, "classes": ["anxious", "frustrated", "happy", "neutral"], "best_layer": 19, "best_acc": 1.0, "real": [0.25, 0.865, 0.885, 0.885, 0.885, 0.93, 0.905, 0.925, 0.94, 0.95, 0.945, 0.94, 0.945, 0.945, 0.99, 0.99, 0.99, 0.995, 0.995, 1.0, 1.0, 0.995, 0.995, 0.995, 0.99, 0.985, 0.985, 0.985, 0.985], "shuffled": [0.25, 0.215, 0.22, 0.235, 0.24, 0.235, 0.295, 0.285, 0.29, 0.235, 0.27, 0.25, 0.255, 0.265, 0.285, 0.285, 0.25, 0.26, 0.27, 0.235, 0.27, 0.22, 0.245, 0.245, 0.27, 0.24, 0.26, 0.24, 0.245], "text_baseline": 0.78, "chance": 0.25, "cosine": [[1, -0.237, -0.258, -0.176], [-0.237, 1, -0.322, -0.436], [-0.258, -0.322, 1, -0.513], [-0.176, -0.436, -0.513, 1]], "labels": ["frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "frustrated", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "anxious", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "happy", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral", "neutral"], "texts": ["third time asking this. the code still throws the same error after your last fix.", "no. that's not what I asked. read my question again.", "I've restarted the router four times now and nothing changes. what else is there", "you keep giving me the same answer with different wording", "ok that broke something else now. great.", "this is the fifth version of the email and it still sounds robotic", "why does the install keep failing at the exact same step every time", "I literally said no bullet points. again with the bullet points.", "stop apologizing and just tell me how to fix the build", "been on hold with the airline for two hours and the chat bot just loops me back to the start", "the formula you gave returns #REF again. same as before.", "nope. still wrong. same output as the last three tries.", "can you please just answer the actual question for once", "I followed every step exactly and it STILL won't boot", "we went over this an hour ago and you've forgotten it already", "why is it so hard to get a straight yes or no out of you", "tried that. tried the other thing too. neither works.", "the printer says it's connected but nothing comes out. for the tenth time today.", "every single link you sent is dead", "ugh. fine. what's the NEXT thing to try then", "I don't need an explanation of what a loop is, I need the bug fixed", "that's the same code I pasted to you. you didn't change anything.", "the landlord has ignored my last six emails about the heating", "seriously, how many times do I have to reset my password this week", "the app crashed again and wiped the form I spent 40 minutes filling in", "no, I already cleared the cache. that was the first thing I did.", "you're overcomplicating this. it's a one line change.", "the delivery was \"out for delivery\" for three days and then went back to the warehouse", "I asked for a short summary and got four paragraphs. again.", "same error. same line. same everything. what am I missing", "whatever you're doing, it isn't working. let's try something completely different.", "how is this still not sorted after a whole week of back and forth", "that's the third wrong date you've given me for the deadline", "I don't care about best practices right now, I just need it to run", "ok I give up on this approach. it never works.", "the tests passed locally and fail in CI. every. single. time.", "please stop suggesting I turn it off and on again", "you contradicted what you told me ten minutes ago", "support closed my ticket without even reading it", "I've been stuck on this one regex all afternoon", "nothing I do changes the result. nothing.", "why does the same query take 2 seconds one day and 40 the next", "no that's backwards. the OTHER way around.", "this is taking forever and I still have nothing to show for it", "the meeting got moved for the fourth time and now it clashes with everything", "you're not listening. I said the spreadsheet, not the doc.", "I just want the thing to work like it did yesterday", "again?? it logged me out again mid-upload", "how many more steps are there, this is endless", "that fix lasted about five minutes before it broke again", "my biopsy results come back tomorrow morning and I can't stop refreshing the portal", "what happens if I miss the visa deadline by a day or two", "I have a job interview in an hour, is it normal that my hands are shaking", "my kid's fever is 39.4 and it's 2am, should I go to the ER or wait", "what if I freeze up during the presentation and forget everything", "I haven't heard back from my manager since I sent that email. is that a bad sign?", "can you check if this mole looks like something serious? it's changed shape", "the bank flagged a transaction I don't recognize, what do I do right now", "my flight lands 40 minutes before the connection, will I make it? what if I don't?", "I keep rereading my essay and finding mistakes, it's due in 3 hours", "is chest tightness after coffee something I should get checked out", "my landlord said \"we need to talk\" and nothing else. what could that mean", "how do I know if the lump I found is anything serious", "what if they find out I made an error in the report I already submitted", "I can't sleep before the exam tomorrow, I keep going over everything", "my dad hasn't answered his phone all day and he usually does", "is there any way to undo an email I just sent to the whole company", "the layoff list goes out friday and my team is on the shortlist", "my heart has been racing for the last twenty minutes for no reason", "what if the surgery doesn't go as planned", "I think I might have left the stove on but I'm already at the airport", "how long does it usually take for a background check, it's been two weeks", "the doctor wants to \"discuss the scan in person\". is that normal?", "what are the chances my offer gets rescinded after the company announced cuts", "my rent is due monday and my paycheck hasn't cleared yet", "I keep checking whether I locked the door. I've gone back three times.", "is it bad that my baby hasn't eaten much today", "I have to tell my parents I'm dropping out and I don't know how they'll react", "what if I picked the wrong university and it ruins everything", "the storm warning says possible flooding in our area tonight, what should I prepare", "I've got a court date next week and I've never done this before", "my partner's been quiet all evening and I don't know what I did", "could a headache this bad be something serious? it's been two days", "my thesis defense is tomorrow and I'm not sure I can answer the hard questions", "I got a letter from the tax office and I haven't opened it yet", "how do I stop my mind from going to worst case scenarios about the test results", "what happens if my visa interview goes badly", "I accidentally deleted a folder at work, can it be recovered before anyone notices", "there's a weird noise from the car and I have a long drive tomorrow", "my dog ate something off the floor and I don't know what it was", "I'm about to call to negotiate my salary and I keep rehearsing it", "I haven't been able to eat properly all week thinking about the move", "what if no one shows up to my event on saturday", "my teenager isn't home yet and it's past midnight", "did I make a huge mistake quitting my job", "the pregnancy test was faint, what does that mean", "I keep imagining the plane having problems, the flight is tomorrow", "my laptop died and I'm not sure my backup from last month has the project", "what should I do if my mind goes blank during the driving test", "the email says \"urgent: account suspension\" \u2014 is this real?", "I got the job!!! starting in two weeks", "we just closed on the house, keys in hand", "she said yes :)", "my code finally passed every test on the first try", "the twins took their first steps today, both of them within an hour", "got my exam results, top of the class", "what a day \u2014 the sun's out, the coffee's perfect, and I finished my book", "our startup just signed its first paying customer", "finally ran my first half marathon and beat my goal time", "my paper got accepted at the conference!!", "the surprise party went perfectly, she had no idea", "help me write a toast for my best friend's wedding, I'm the best man", "we're going to Japan next month, help me plan the best itinerary ever", "my sourdough finally came out with a perfect crumb", "got promoted today, can you help me draft a note to my team", "the puppy is home with us now and already asleep on my feet", "all the tests came back clear \ud83c\udf89", "my little brother got into his dream school", "our band played its first gig and the crowd sang along", "I just paid off the last of my student loans", "the garden is full of tomatoes this year, what can I make with all of them", "the client signed off on the design with zero changes", "we hit 10k users this morning", "my grandma turned 100 today and she danced at the party", "just finished the marathon edit of my film, it's finally done", "the adoption went through, she's officially ours", "won the hackathon with my team this weekend", "what a great weekend at the lake with the whole family", "I passed my driving test on the first go", "my plant I thought was dead just put out three new leaves", "the reviews for my book are coming in and people really get it", "we finally got the grant we applied for twice before", "can you help me plan a celebration dinner? we just got engaged", "my daughter read her first full book by herself tonight", "the bug I chased for a month is fixed and everything runs beautifully", "got a raise without even asking for one", "the concert last night was unreal, best night of the year", "our team made it to the finals!", "I can finally afford to take my parents on a holiday", "the job offer came in higher than I asked for", "just saw the northern lights for the first time, unreal", "my students all passed the certification", "the renovation is done and the kitchen looks amazing", "ran into an old friend today and we talked for hours", "we found out it's a girl :)", "the cast came off and I can finally walk normally", "just booked tickets for our anniversary trip", "my podcast got featured on the front page", "first day of retirement and I already slept in", "our rescue cat finally let me pet her", "what's the boiling point of water at high altitude", "can you convert 25 degrees celsius to fahrenheit", "how do I sort a list of dictionaries by a key in python", "what's the capital of australia", "summarize the main causes of the french revolution", "what's the difference between a stock and a bond", "how many grams are in a cup of flour", "give me a regex that matches US zip codes", "what time zone is chicago in", "explain how a hash table works", "list three common uses of baking soda", "how do I rename a branch in git", "what does the term \"opportunity cost\" mean", "what's a good substitute for buttermilk in a recipe", "how long should I boil an egg for a medium yolk", "what's the population of canada roughly", "how do I add page numbers in google docs", "what's the formula for the area of a trapezoid", "which planets have rings", "how do I make a pivot table in excel", "what's the difference between http and https", "translate \"where is the train station\" into german", "how many miles is a 10k run", "what is photosynthesis in simple terms", "how do I check my python version", "what are the main ingredients in hummus", "explain what an API is", "what's the speed of sound in air", "how do I center a div with flexbox", "what year did the berlin wall fall", "what's the plural of \"cactus\"", "how do I set up a cron job that runs every hour", "what is the median of 3, 7, 9, 12, 15", "recommend a format for a weekly team meeting agenda", "how do vaccines train the immune system", "what's the difference between affect and effect", "how much water should a houseplant like a pothos get", "what does SQL JOIN do", "how do I find the IP address of my computer", "what is the tallest mountain in africa", "what are the rules of chess castling", "how do I write a for loop in javascript", "what's the exchange rate concept of purchasing power parity", "how many teaspoons are in a tablespoon", "what is the function of the mitochondria", "how do I mute a channel in slack", "what's the best way to store fresh basil", "explain big O notation briefly", "how do tides work", "what's the difference between RAM and storage"], "p": [1, 1, 0.97, 1, 1, 1, 1, 1, 1, 0.92, 1, 1, 1, 1, 1, 0.88, 1, 0.99, 1, 1, 1, 1, 0.66, 1, 0.99, 1, 1, 0.94, 1, 1, 0.99, 1, 1, 0.94, 0.99, 1, 1, 1, 0.99, 1, 1, 0.68, 1, 0.99, 0.96, 1, 0.99, 1, 1, 0.99, 1, 0.98, 1, 1, 1, 1, 0.98, 0.99, 0.99, 0.93, 1, 1, 1, 1, 1, 1, 0.99, 1, 1, 0.99, 1, 0.92, 0.78, 0.99, 1, 0.99, 1, 1, 1, 0.96, 1, 0.99, 1, 1, 1, 0.89, 1, 1, 1, 1, 0.54, 0.74, 0.97, 1, 1, 0.85, 1, 0.76, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.99, 0.8, 0.95, 1, 0.98, 1, 1, 1, 1, 1, 0.68, 0.98, 1, 1, 1, 0.99, 1, 1, 1, 0.98, 1, 1, 0.97, 1, 1, 0.97, 1, 1, 1, 0.9, 0.99, 1, 1, 1, 1, 0.99, 1, 1, 0.98, 1, 0.99, 1, 1, 1, 0.99, 1, 1, 1, 1, 1, 1, 1, 1, 0.91, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0.88, 1, 1, 0.92, 1, 0.98, 1, 1, 1, 1, 1, 1, 1, 0.99, 1, 1, 1], "pca": {"4": [[-15.1, 42], [-25.5, 20.5], [-34.6, 34.5], [5.8, 6.4], [-11.2, 14.8], [-1.1, -8.1], [0.7, 26.9], [-17.1, 16.1], [-0.7, 5.8], [-18.7, -4.8], [-3.8, 20], [-8.1, 30.7], [7.7, 0.9], [-15.4, 18.7], [-28.7, -2.2], [-4.1, 7.1], [-15.4, 17.8], [-28.1, -0.9], [11.4, -8.9], [-7, 10.1], [-15.7, 36.3], [-30.8, 22.6], [-1.8, -35.2], [-8.7, -2.2], [-12, -1.8], [-29.8, 20.5], [-19.2, 15.8], [-13.1, -28], [-14.6, 17.2], [-7.2, 44.6], [-31.3, 17.7], [-7.2, 15.9], [-16.1, -6.7], [-27.2, 16.5], [-17.1, 24.7], [-3, 18.5], [-1.6, -3.9], [-10.6, -4], [8.1, -10.2], [-5.4, 28.2], [-6.2, 16], [-2.2, 30], [-14.3, 17.5], [-19.7, 5.9], [-14.1, -19.7], [-20.7, 9], [-21.4, 12.7], [-4.4, 6.2], [10.7, 9.6], [-8.1, -18], [-17, -10.6], [-5.1, 7.8], [-21.6, -4.7], [-24.9, 15.7], [-6, 7.9], [-47.4, 19.7], [-16.4, 9], [-19.7, -0.1], [-36.5, 14.3], [-18.1, 4.5], [-2.3, -10], [-26.4, 1], [-2.1, 17.9], [-8.5, 11.4], [-28.6, -6.6], [-14.9, -27.5], [-11.6, 14.5], [-5.2, -11.5], [-9.1, -27.3], [0.1, 5], [-31.9, -0.7], [-11.8, 3.2], [-29.3, 20.9], [5, -3.4], [-6.4, -3], [-35.2, -1.9], [-11.8, -13], [-31.3, 8.2], [-4.3, 12.1], [-17.9, -13.1], [-33, -2.3], [-28.4, -9.6], [-27.5, 0.9], [-10.1, 1.5], [-26, -11.4], [-3.2, 12.5], [11.7, 1.6], [-21.3, -6.1], [-25.1, -4.9], [-20.9, -2.8], [-17.4, -14], [-21.7, -9.2], [0.2, 12.2], [-6.6, -24.5], [-0.9, -6.1], [-2.7, -12.2], [-21, -3.5], [-21.8, 4.3], [-4.2, -0.8], [-17.2, 9.5], [-4.6, 1.9], [-3.7, -12.3], [8.4, -8.7], [4.6, 19.3], [-7, -28], [7.7, -12.5], [-14.7, -12.9], [13.7, -40], [-2, -20.3], [2.5, -8.8], [1, -38], [-9.4, -2.5], [-15.7, -14], [3.2, -20.5], [-0.2, -8], [-7.1, -23.5], [15.9, 7], [5.8, -34.3], [8.3, -44.6], [-2.5, -16.2], [-12.4, -17.8], [8.4, -18.2], [1.6, -12], [-4.3, -35.7], [-17.4, -7.3], [0.4, -30.8], [8.3, -9.8], [1, -8.4], [-1.8, -23.2], [-7.3, -17.7], [-12.1, 2.1], [-9, -15.1], [-7.3, -12.9], [-0.4, -37.2], [-11.8, -1.1], [7.4, -13], [-0.8, -27.6], [6.9, -24.5], [-7.3, -27.2], [3.7, -15.6], [-0.3, -23.6], [16.5, -32], [7.8, -18.7], [-10.6, -19], [-6.8, -3.5], [-4.5, -19.8], [14.2, -31], [13.5, -15.8], [5, -25.7], [7.6, -35.5], [15.6, -4.4], [25.3, 3.8], [30.9, 46.3], [29.9, -7.5], [31.8, -16.9], [18.4, 14.7], [32.4, -6], [24.9, 29.6], [32, -3], [40.3, 9.9], [40.9, -32.1], [27, 43.5], [24.5, -8.4], [8.6, 2.7], [16.3, 2.7], [25.2, -2.2], [26.8, 37.5], [30.5, 11.4], [35, -18.4], [30.6, 48], [14.5, 30.1], [22.7, -2.4], [27.7, 1.3], [37.4, 7.5], [25.5, 28.3], [36.2, -9.3], [34.5, 12], [22.8, 6.2], [24.9, 39.5], [30.8, -9.8], [26, -7.9], [12.8, 31], [28.1, 21.5], [30.4, -19.9], [36.2, 3.3], [16.1, 13.8], [20.5, -7.4], [33, 18.2], [18, 11.7], [31.4, 5], [38.1, 1], [27.3, 60.8], [24.4, -1.5], [32.9, -8], [32.1, -6.6], [23, 22.3], [23, 4.1], [40.8, -1.1], [38.7, 7.6], [18.4, 14]], "9": [[8.8, 53.3], [17.3, 39.7], [-4.4, 10.8], [12.9, 21.3], [30.7, 29.6], [19.4, 9.9], [-16, 26.7], [24.8, 30.9], [-8.2, 26.4], [19.6, 3.9], [9.1, 34.6], [16.8, 46.7], [-4.6, 26.6], [14.9, 17.4], [30.6, 9.9], [-13.5, 1], [22.6, 32.7], [16.4, 8.4], [22.5, 7.6], [6.8, 18], [6.3, 29.4], [16.1, 51.8], [20, -13.5], [-1.8, -7.6], [19.2, -2], [26.6, 21.1], [16.5, 52.4], [17.6, -19], [8.1, 36], [-1.6, 43.9], [20.8, 25.6], [-2.6, 9.1], [25.4, -2.3], [19.1, 14.3], [20.3, 34.8], [13.8, 32.8], [17.2, 14.7], [16.1, 7.8], [12.7, 3.3], [10.3, 36.2], [15.9, 28.7], [-15.2, 18.8], [19, 25.1], [19.5, 13.2], [22.9, -9.5], [25.7, 26.4], [16.7, 15.8], [22.7, 22.5], [-3.2, 2.6], [19.1, -11.6], [16.9, -7.6], [-18.4, -5], [-5, -9.4], [-5.1, -13.3], [-3.6, -3.5], [6.6, 4.1], [2.6, 1.8], [-11.8, 0.1], [-1.2, -1.8], [25.5, 0.1], [-7.4, -11.6], [-9.5, -4.6], [-19.3, 0.4], [-0.8, 2.7], [22.8, -14.5], [18.3, -16.3], [-9.9, 6.1], [17.1, -8.2], [25.7, -14.8], [-3, -11.1], [29, -11.4], [-12.3, -13.6], [-4, 2.7], [-9.8, -9], [17, -8.9], [32.9, -0.8], [0.9, -15.6], [12.2, -7.4], [0.1, -0.6], [-10.8, -16], [22.4, -6.8], [15.1, -10.8], [10.1, -9.2], [11.8, 7.5], [24.2, -10.9], [-24.1, 2.4], [-18.9, -6.3], [-0.5, 3.2], [22, -7], [6.8, -15.1], [23.5, -7.7], [26.7, -16], [-3.7, -4.9], [20.8, -12.4], [7.2, -7.4], [-21.3, -16.9], [28.3, -12.3], [10.8, -2.7], [-23.5, -10.2], [0.3, 7.7], [30.1, -4.6], [31, -12.8], [25, 3.7], [10.3, 29.6], [20.9, -24.8], [24.2, -11.1], [21.3, -15.4], [22.1, -12.3], [17.7, -15.2], [26.1, -6.8], [21.2, -21.9], [-11, -2], [-4.8, -7.9], [20.4, -14.6], [-5.8, 11.9], [24.8, -17.8], [26.4, 9.2], [20, -22.1], [23.6, -23.6], [25.5, -14.5], [-19.4, -20], [17.1, 0.1], [28.7, -2.7], [15.8, -24.9], [26.7, -3.2], [26.9, -12.2], [25.7, -9.1], [12.8, -18.6], [27, -17.1], [16.5, -20.5], [19.6, -4.6], [25.7, -12.4], [0.6, -5.5], [19.4, -24.1], [22, -3.6], [19.8, -12.6], [20.4, -23.9], [31.6, -6.5], [25.5, -17.1], [20.8, -11.3], [16.9, -9.9], [16.9, -15.6], [24.6, -14.1], [27.7, -13.1], [25.6, 2.4], [18.6, -12.1], [24.6, -14.1], [21.4, -7.1], [22.1, -15.1], [19.2, -19.4], [-36.4, -17.4], [-29.4, -1.5], [-44, 36.8], [-33.5, -20.2], [-37, -11.4], [-43.2, -10], [-39.5, -24.7], [-25.7, 29.5], [-30.6, -16.2], [-46.8, 11.6], [-32, -14.2], [-42.3, 29.1], [-40.6, -15.3], [-39, -13.9], [-27.1, -13.5], [-27.2, -19], [-40.6, 21], [-39.8, -7.8], [-36, -19], [-45.3, 19.6], [-43, 6.6], [-16.1, 8.4], [-36.9, -21.4], [-41.5, -7.1], [-41.2, 30.6], [-39.7, -19.7], [-46.5, 8.8], [-37.8, -13.1], [-40.5, 31], [-30.8, -23.6], [-29.1, -8.8], [-38.8, 22.6], [-27.9, -6.2], [-27.9, 5.5], [-39.4, -14.4], [-39.2, -4.6], [-26.8, -23.5], [-44.6, 9.5], [-37.4, 8.2], [-34.8, -18.6], [-44.8, -5.8], [-45.7, 33.5], [-31.6, -10.1], [-37.6, -21.4], [-45.4, -18.8], [-38.3, 17.5], [-29.4, -10.9], [-37.7, 17.7], [-41.9, -5.9], [-45.2, -1.8]], "14": [[-4.6, 44.4], [-2.8, 60.6], [4, 4.2], [-5.6, 54.5], [-19.4, 48], [-11.3, 22.7], [15.3, 14.2], [-10.1, 42], [10, 24.1], [-16.3, -3.2], [3.5, 45.4], [-6.4, 62.6], [8.9, 49], [-6.5, 10.9], [-14.4, 53], [11.1, 18.2], [-12.5, 31.9], [-12.3, 3.4], [-9.5, 35.7], [-3.5, 30.5], [4.4, 31], [-7.2, 57.1], [-18, -15.4], [-2.3, 13.2], [-16.3, 1.8], [-19.6, 35.5], [-4.5, 58.5], [-8.8, -8.2], [0.6, 41.9], [4.6, 35.6], [-15.4, 42.4], [3.8, 17.7], [-18.9, 32.3], [-8.2, 23.4], [-20, 31.6], [-9, 14], [-10.3, 30.6], [-4.9, 38], [-15.8, 6.4], [-9.1, 18.7], [-12.4, 24.9], [18.9, 6.1], [-3.8, 52.3], [-17.6, 17.3], [-17.7, -6.9], [-13.2, 51.4], [-7.2, 20], [-16.9, 18.4], [10.5, 23.9], [-15.6, 7.4], [-23.2, -13.3], [19, -13], [-3.7, -16.7], [6.8, -20.9], [2.9, -11.3], [-7.4, -8.8], [5.8, -0.1], [9.5, -12.6], [4.6, -12.9], [-23.6, -2.9], [14.5, -13.2], [15.1, -4.2], [20.6, -16.1], [0.4, -7.6], [-26.3, -16.2], [-22.6, -17], [15.2, -5.2], [-23.3, -18.6], [-19.5, -14.6], [6.1, -12.7], [-26.2, -10.5], [8.5, -4.4], [7.7, -0.3], [13.9, -11.3], [-18.1, -16.9], [-30, -11.4], [-0.3, -16], [-14.8, -17.4], [3.2, -9.5], [6, -21.6], [-20.9, -15.1], [-19.2, -15], [0.2, -9.4], [-18.9, -10.3], [-24.2, -17.3], [16.5, -10.8], [12.6, -17.8], [3, -12.4], [-18.9, -18.5], [-8.2, -19.4], [-25, -11], [-30, -15.6], [-0.6, -16], [-24.6, -12.5], [-0.4, -11.9], [21.3, -12.1], [-25.9, -7.9], [-11.6, -12.1], [13.3, -26.8], [2, 1.6], [-38.6, -10.1], [-31.5, -9.5], [-20.8, 13.1], [-13.2, 12.6], [-20.9, -13], [-33, -9.6], [-27.1, -6.1], [-32.5, -19.7], [-29.5, -21.6], [-36.9, -12.9], [-25.2, -7.3], [-2.6, -14.8], [1.7, -15.3], [-24, -14.6], [1.6, -5.7], [-30.2, -9], [-26.1, 6.7], [-33, -21.2], [-27.8, -19.6], [-35.2, -16.7], [9.2, -16.9], [-12.9, -2.4], [-24.7, -2.1], [-30.3, -23.6], [-38, -10.1], [-26.3, -0.5], [-35.3, -15.4], [-20.5, -12.9], [-28.6, -13.2], [-9.3, -13.5], [-29.3, -6.5], [-23.2, -9.4], [-9, -17.9], [-30.9, -18.1], [-22.3, -2.7], [-15.8, -13.3], [-29.3, -10.8], [-40.1, -6.7], [-37.4, -19.4], [-17.6, -12], [-20.7, -9.7], [-23.3, -8.9], [-28.9, -3.5], [-33.5, -11.9], [-25.7, 12.6], [-22.9, -13.2], [-37.7, -15], [-27.7, -13], [-29, -10.5], [-29.7, -19.3], [38.2, -7.9], [35.6, 10.2], [39.8, 2.2], [32, -7.3], [34.6, -6.7], [40.8, -12.4], [40.4, -3], [32.9, 11.8], [33.8, -2.8], [44.5, -0.4], [32, -0.3], [36.8, -5.7], [42.3, -5.9], [30, -10], [35, -7], [32.8, -6.6], [32, -5.6], [44.2, -3.6], [37.9, -8.9], [37.3, -7], [41.1, -5.5], [16.7, 8.2], [36.4, -6.7], [36.1, -2.5], [37.9, 0.3], [36.2, -9.7], [39.3, -1.4], [37.4, -6.1], [36.4, -1.2], [33.7, -7], [33, 4.7], [35.5, -6.2], [38.2, 4.2], [21.3, -6.7], [34.6, -14.5], [39.4, -4.3], [33.2, -10.6], [43.7, -3.8], [32.4, -8.8], [33.8, -10.3], [43.8, -11.1], [40.2, 0.1], [38.3, -9.5], [39.7, -0.4], [41.1, -10.4], [28.9, -6.6], [29.6, -15], [38.4, 2.7], [36.9, -9.2], [40.3, -6.4]], "19": [[11.3, -54.2], [1.6, -63.1], [-4.6, -11.1], [6.2, -42.3], [12.3, -37], [9.5, -29.7], [-11.7, -16.8], [-0.2, -40.3], [-5.6, -34.9], [17.4, 0.8], [3.2, -58.5], [11.5, -67.9], [-4.8, -51.2], [6.4, -23.4], [11, -44], [-16.2, -17.2], [13.9, -53.1], [5.2, -8.6], [7.3, -43.5], [5.8, -44.1], [1, -59], [7.6, -60.9], [7.7, 1.6], [8.3, -18.8], [23.7, 0.4], [13.3, -31.9], [4.8, -40.5], [2.3, -4], [-4.2, -48], [0.9, -44.3], [9.9, -38.7], [-1.3, -35.6], [14.5, -43.7], [4.3, -24], [20.6, -28.7], [2.2, -2.6], [2.8, -30.1], [2.8, -51.5], [14, -3], [22.1, -32.3], [13.4, -32.4], [-21.7, -0.8], [0, -49.6], [16.7, -32.5], [10.1, -0.4], [3.1, -41.1], [2.1, -37.3], [13.3, -22.1], [-7.9, -41.1], [7.6, -15], [22.5, 10.4], [-19.6, 0.2], [1.4, 15.3], [-10, 10.4], [-3.4, 14.8], [-6.5, 2.9], [-7, -10.6], [-10, 6.4], [-9, -7.3], [12.1, 1.3], [-19.9, 3.1], [-11.5, 4.1], [-18.3, 7.3], [-7.9, 5.8], [15.4, 8.4], [11.6, 2.2], [-21.6, 4.5], [19.8, 10.4], [5.8, 3.9], [-12.3, 5.2], [13.6, 1.7], [-16.5, -5.6], [-19.9, 7.9], [-18.7, -0.2], [12.9, 2.5], [12.5, 7.3], [-9.4, -7.7], [9.3, 12.4], [-3.7, 8.4], [-11.3, 13.5], [14, 5.8], [10.1, 1.7], [-12.4, -2.7], [14.7, 8.3], [10.6, 3], [-11.1, 11.7], [-16.5, 9.8], [-14.5, 4.1], [4.9, 0.9], [4.4, -1.7], [17.1, 15.1], [16.2, 6.7], [-1.6, 5.4], [14.3, 0.7], [-5.5, -3.8], [-23.9, 6.8], [12.6, 3.3], [7.1, -8.4], [-13.4, 13.3], [-13.2, -4.5], [49.3, 26.8], [32.4, 12.1], [23.1, -5.3], [40.4, 11], [20.3, 17.4], [47.4, 26.8], [26.1, 17], [38.9, 28], [40, 27.1], [49.4, 27.9], [15.4, 7.6], [-4.4, 15.2], [0.4, 6.5], [35.9, 24.6], [4.8, 8.1], [30.9, 14.6], [35.8, 12.3], [43, 25.9], [28.9, 24.4], [42.8, 26.3], [-5.9, 12], [12.4, 9.2], [32.3, 10.8], [37.3, 27.6], [42.7, 22.3], [17.9, 1.3], [40.3, 19.1], [22.4, 13.9], [41.6, 26.1], [16.5, 11.9], [28.8, 16.5], [28.3, 13.7], [8.5, 13.7], [44.3, 29.9], [32.8, 14.6], [14.1, 20.7], [29.4, 9.7], [42.6, 14], [34.4, 21.8], [14.9, 12], [30.5, 19], [35.1, 15.5], [33.5, 10.8], [29.9, 15.7], [32.9, 0.6], [22.3, 9.6], [43, 15.3], [39.2, 23.6], [29.2, 19.4], [33.1, 24.2], [-37.1, 7.8], [-34.1, 8.7], [-30.6, 9.3], [-32.6, 13.2], [-32.7, 11.5], [-38.3, 14.1], [-34.9, 1.5], [-35.3, 8.6], [-37.3, 8.1], [-31.9, 13.3], [-30.8, 10.9], [-32.1, 13.6], [-33.5, 12.9], [-29, 11.9], [-35, 9.4], [-35.1, 10], [-29.1, 13.1], [-36.5, 12], [-38.9, 13.9], [-26.5, 9.7], [-38.1, 15], [-27.4, 6.1], [-36.5, 11.2], [-30.9, 9.5], [-30.9, 11.3], [-35, 15.1], [-32.9, 13.1], [-37.7, 9.3], [-31.7, 11.1], [-31.7, 12.3], [-34.8, 11.6], [-29.4, 9.2], [-32.7, 7.6], [-21.9, 13.3], [-32.8, 16.3], [-39.3, 13.1], [-30.7, 8.7], [-34.5, 11.6], [-28.4, 9.2], [-35.3, 13.8], [-34.2, 12.3], [-30.6, 9.9], [-32.1, 12.4], [-36.4, 9.9], [-33.2, 15.4], [-28.6, 7.8], [-30.2, 17.8], [-32.7, 10.4], [-32.8, 14.4], [-38.8, 13.3]], "23": [[-22.6, -34.6], [-27.3, -26.8], [-14.8, -13.4], [-18, -33.8], [-14.4, -37.6], [-15.3, -22.6], [-17.4, 3.5], [-21.2, -25.5], [-19.5, -7.9], [-3.7, -31.4], [-20, -26.6], [-22.4, -34.4], [-24.2, -10.1], [-13, -25.4], [-18.3, -36.4], [-20.8, -4.8], [-20.8, -31.3], [-12.7, -26], [-12.6, -41.2], [-23.5, -12.1], [-23.4, -16.8], [-22, -26.3], [-11.1, -18.8], [-10.9, -21.7], [1.6, -36.8], [-11, -26], [-15.9, -18.4], [-11.6, -13.6], [-25.2, -27.8], [-17.2, -11.2], [-18.9, -19.2], [-17.3, -14.9], [-15.5, -42.3], [-18.4, -16.9], [-13.7, -36.4], [-11.4, -8], [-22.2, -19.7], [-20.3, -22.8], [-5.8, -28.8], [-14.3, -32.9], [-11.6, -28.8], [-17.5, 13.6], [-23.9, -19.9], [-12.1, -39.1], [-5.1, -23], [-20.4, -25], [-18.5, -12], [-12.1, -31], [-17.1, -10.8], [-10.4, -17.8], [-1.4, -26.1], [-13.9, 11.6], [-9.4, -1.4], [-12.6, 2.3], [-10.5, -4.6], [-17.3, 0], [-19, -2.4], [-11.7, -2.1], [-12.9, 6.5], [-8, -22.6], [-16.4, 12.9], [-12.6, 3.3], [-10.1, 7.7], [-12.7, 2], [-4.3, -23.6], [-11.9, -21.5], [-16.7, 12.9], [-0.8, -30.3], [-9.6, -14.8], [-13.6, 5.2], [-9.5, -21.3], [-16.1, 14.6], [-10.4, 14.5], [-14.4, 11.3], [-9.9, -25.8], [-10.3, -11.8], [-16.2, 2.8], [-3.5, -16.3], [-10.7, -3.4], [-8.9, 4.4], [-1.6, -15.8], [-11, -20.2], [-14.7, 1.2], [-1.5, -16.9], [-6.4, -3.5], [-9.9, 3.4], [-14.1, 4.4], [-16, 5.1], [-8.8, -13.5], [-12.4, -11.7], [4.4, -4.2], [-4, -25.4], [-11.3, -5.7], [-11.3, -18.9], [-14.3, 4.5], [-13.6, 15.2], [-6.5, -25.4], [-13.1, -28.7], [-10.1, -1.3], [-15.2, 6.4], [63.7, 7.8], [52.2, 2.6], [33.8, -1.1], [57.7, 0.8], [52, 3.3], [60.5, 6], [16.2, -2], [61.8, 8.8], [60.4, 5.1], [62.3, 8.3], [27.8, -1.5], [-1.6, 11.3], [10, 7.5], [58.7, 3.1], [24.9, 5.9], [30.7, -4.6], [39.9, -0.6], [61, 3.4], [48.4, 2.6], [57.8, 4.4], [11.6, 12.4], [22.9, 2], [56.6, 0.2], [48.1, 6.7], [53.5, 0.9], [24.3, -1.2], [67.6, 3.9], [27.3, -2.6], [64.2, 6], [33.8, 0.8], [48.2, -7], [57.8, -1], [28.6, 8.2], [56.5, 5.6], [56.8, -6.3], [32, 6.8], [32.8, -12.8], [64.8, 4.3], [48, 2.6], [36.6, -0.1], [29.1, -1.2], [66.1, 1.6], [49.9, -6.6], [34.6, -5.4], [52.6, 2.3], [44.8, -4], [55.3, 1.2], [56.3, 6.2], [27.7, -1], [56.7, 2.3], [-19.6, 28.4], [-20.5, 24.7], [-19.2, 25.7], [-16.1, 29.4], [-18.6, 26.2], [-18.4, 25.1], [-16.4, 25.6], [-21.8, 27.4], [-19, 28.2], [-18.7, 26], [-17.8, 25.9], [-16.8, 24.9], [-17.8, 26.8], [-16, 19.6], [-16.2, 25.2], [-18.5, 30.6], [-16.1, 22.5], [-21, 29.1], [-18.4, 28.2], [-13.6, 22.2], [-19.2, 27.5], [-17.4, 22.2], [-13.8, 29.2], [-19.9, 26.2], [-18.4, 25], [-17.6, 30], [-19.2, 25.5], [-18.6, 32.1], [-17.5, 25.9], [-15.2, 26.8], [-18.5, 30.4], [-16, 24.5], [-19.1, 23.9], [-13.6, 18], [-15.7, 27], [-17.2, 22], [-14.7, 23.5], [-19.1, 28.1], [-18.3, 22.6], [-16.6, 30.6], [-18.2, 26], [-14.9, 24.8], [-18.7, 28.5], [-17.3, 26.6], [-16.3, 28.6], [-17.6, 21.6], [-14.9, 24.5], [-20.6, 25.9], [-18, 28], [-18.5, 25.4]], "28": [[15.5, -33.3], [18.9, -26.6], [14.2, -10.1], [11.3, -31.9], [6.9, -37.2], [12.5, -22], [17.5, 2.6], [14.4, -27.1], [16.3, -12.7], [1.8, -23], [16, -30.5], [15.6, -36.8], [18.5, -13.3], [10.8, -25.1], [9.2, -34.8], [13.6, -8.1], [13.6, -33.4], [8.4, -23.8], [8.2, -31.7], [16.3, -20.1], [18.1, -14.2], [16.7, -30.4], [8.5, -21.7], [3.1, -26], [-2.7, -24.7], [8.9, -25], [12.5, -23.8], [7.9, -19.8], [18.5, -30.1], [14.9, -13.8], [9.3, -20.1], [13.6, -20.2], [8.7, -31.4], [14.5, -15.2], [3.3, -33.4], [10.2, -5.4], [19, -23.1], [12.4, -27.8], [4.4, -27.3], [8, -26.6], [4.1, -30.3], [17.4, 15.2], [17.1, -25.7], [5.1, -34.7], [3.3, -21.7], [13.9, -28.2], [16.2, -15.7], [5.3, -31.2], [12.2, -18.5], [7.3, -25.7], [2, -19.3], [13.4, 10.9], [8.2, -1.9], [10.7, 4.4], [9.5, -0.5], [14, -0.5], [17.9, -9.6], [12.6, -0.9], [12, 6.1], [6, -18.5], [15.5, 8.1], [9, 2], [14.1, 5.1], [12.9, 0.3], [3.9, -17.6], [8.8, -22.7], [19.4, 7.5], [0.8, -21.3], [6.9, -10.6], [13.3, 3.3], [3.9, -20.7], [15, 13.6], [11.5, 9.1], [13.7, 6.7], [7.8, -22.6], [10.1, -10.2], [14.2, 3.3], [7, -7.5], [7.3, 0.6], [8.2, 3.8], [4.9, -11.7], [8.8, -20.6], [12.2, -0.3], [0.6, -12.9], [6.9, -6.8], [11.4, 2.4], [13.6, 3.6], [18.9, 1.8], [6.1, -17.1], [12.5, -13.3], [-4.7, -1.8], [2.5, -19.1], [6.2, -4], [8.1, -18.4], [13.3, 4], [12.5, 16.4], [5.1, -17.1], [9.4, -26.5], [12.3, 0.1], [14.5, 1.4], [-46.2, 8.7], [-41.5, 6.5], [-32.4, -4.3], [-44.1, 5.8], [-39.9, 4.6], [-44.6, 7.8], [-25, -6.8], [-42.7, 11.9], [-45.3, 7.5], [-46.2, 8.8], [-29.1, -4.2], [-7, 11.6], [-13.9, 9.6], [-45.2, 6.6], [-19.3, 6.3], [-33.9, -3.3], [-40.8, -1.7], [-47.8, 5], [-42, 4], [-44, 6.9], [-15.3, 15.8], [-24.3, 1], [-40.7, 4.7], [-40.4, 8.2], [-44.5, 3.6], [-29.1, -5.3], [-45.4, 8.5], [-26.5, -5.1], [-46.8, 8.6], [-32, 0.5], [-37.2, -4.8], [-42.5, 0.1], [-23.3, 6.8], [-46.7, 7.9], [-41.7, -4.9], [-18.9, 4.8], [-32.2, -10.2], [-47.4, 7.1], [-40.3, 4.5], [-30.1, -0.5], [-28.3, 2.1], [-44.9, 3.3], [-39.2, -5], [-29.7, -4.2], [-43, 5.9], [-34.4, -4.3], [-45.5, 4.8], [-43.4, 8.7], [-29.5, -1.9], [-44.5, 3], [17, 26], [14.5, 17.4], [19.5, 25.4], [10.1, 24.5], [19.6, 28.8], [16.6, 26.7], [12.8, 27.1], [23.5, 27.6], [14, 22], [12.6, 21.7], [16, 23.7], [15.4, 23.6], [14.8, 23.3], [15.4, 22.6], [16.4, 26.1], [12.5, 22], [14.4, 21.2], [17.7, 29.6], [14.4, 25.2], [12.2, 22.6], [17.1, 25.2], [18.4, 27.3], [8.8, 28.2], [13.8, 21.4], [16.2, 24.1], [12.3, 28.7], [15.6, 19.8], [17.1, 27.8], [16.4, 25.8], [10.8, 26.2], [16.5, 30.9], [15.6, 23.2], [18.5, 25.7], [12.1, 20], [11.4, 24.6], [16.1, 22.5], [13.6, 21.8], [18.7, 26.7], [17.8, 21.1], [13, 30.4], [16.8, 25.9], [13.7, 23.7], [17.3, 27.4], [13.9, 28.5], [12.4, 28.5], [15.9, 21], [16.2, 26.2], [16.1, 22.8], [15.2, 24.4], [16, 23]]}, "contrast": {"grouped": [0.25, 0.7, 0.7, 0.738, 0.725, 0.75, 0.769, 0.762, 0.806, 0.762, 0.787, 0.812, 0.831, 0.838, 0.887, 0.906, 0.919, 0.919, 0.9, 0.912, 0.925, 0.938, 0.944, 0.938, 0.919, 0.925, 0.894, 0.894, 0.869], "grouped_shuf": [0.15, 0.231, 0.163, 0.231, 0.181, 0.225, 0.206, 0.219, 0.219, 0.225, 0.225, 0.25, 0.237, 0.225, 0.206, 0.237, 0.2, 0.219, 0.194, 0.15, 0.131, 0.175, 0.163, 0.169, 0.156, 0.15, 0.163, 0.113, 0.2], "tfidf_grouped": 0.575, "transfer": [0.25, 0.519, 0.494, 0.487, 0.5, 0.481, 0.481, 0.487, 0.487, 0.575, 0.594, 0.613, 0.644, 0.619, 0.644, 0.675, 0.656, 0.669, 0.625, 0.719, 0.744, 0.756, 0.794, 0.787, 0.775, 0.769, 0.756, 0.744, 0.744], "misses": [{"sit": 2, "true": "neutral", "pred": "frustrated", "text": "my flight got cancelled and the airline offered a rebooking on a partner carrier for tomorrow"}, {"sit": 5, "true": "neutral", "pred": "anxious", "text": "I have an interview tomorrow at nine for a data analyst role"}, {"sit": 9, "true": "neutral", "pred": "happy", "text": "the new laptop arrived today, it has 16 gigabytes of memory and a 1 terabyte drive"}, {"sit": 11, "true": "neutral", "pred": "anxious", "text": "the recovery email on my old account is no longer active"}, {"sit": 19, "true": "neutral", "pred": "anxious", "text": "the marathon is in ten days and my longest run so far was twenty miles"}, {"sit": 32, "true": "happy", "pred": "frustrated", "text": "we got a table at the place with the six month waiting list"}, {"sit": 33, "true": "anxious", "pred": "frustrated", "text": "I sent the deposit for the flat to the account in the email and the bank says it's not the landlord's account"}, {"sit": 34, "true": "frustrated", "pred": "neutral", "text": "how do I reply when my supervisor comments on the chapter I already rewrote"}, {"sit": 34, "true": "anxious", "pred": "neutral", "text": "my supervisor wants to meet about the thesis draft and said we need to talk about the timeline"}], "sit": {"1": {"frustrated": "the build failed on the same step again, the fourth run in a row, and nothing in the log has changed", "anxious": "the build failed right before the release cutoff, is there any way to fix it before tonight", "happy": "the build passed on the first try after a week of red runs, can you help me write up what fixed it", "neutral": "the build failed on the linking step with exit code 137 after the dependency update"}, "2": {"frustrated": "why does the airline keep cancelling this flight, this is the third time they've moved me", "anxious": "my flight got cancelled and I have to be at my sister's wedding by tomorrow noon, what are my options", "happy": "the airline put me on a direct flight that lands earlier after the cancellation, what should I do with the extra afternoon", "neutral": "my flight got cancelled and the airline offered a rebooking on a partner carrier for tomorrow"}, "3": {"frustrated": "the landlord replied to my email about the leak with a copy of the lease, again, without answering anything", "anxious": "the landlord emailed asking to talk about the lease and didn't say what about. could it be about the renewal", "happy": "the landlord says the rent stays the same and the kitchen gets redone in spring, can you help me write a nice reply", "neutral": "the landlord emailed about the lease renewal, the new term starts in august"}, "4": {"frustrated": "the lab lost my blood sample so now I have to go back and do the whole thing over next week", "anxious": "the doctor wants to go over my blood test results in person on monday, what could that mean", "happy": "every number on the blood test is in the normal range now, what's a good way to celebrate with friends", "neutral": "my blood test results list ferritin at 45 and vitamin d at 60"}, "5": {"frustrated": "they rescheduled my interview for the third time, an hour before it was meant to start", "anxious": "the interview is tomorrow at nine and I keep blanking on tell me about yourself, how do I get through it", "happy": "the interview went really well and they want me back thursday, how should I prepare to meet the team", "neutral": "I have an interview tomorrow at nine for a data analyst role"}, "6": {"frustrated": "the tracking page has said out for delivery for five days and the courier line just hangs up on me", "anxious": "the package with my passport hasn't arrived and I fly out on saturday, what can I do", "happy": "the package arrived a day early and the gift is even nicer than the photos, can you help me write the card", "neutral": "the tracking page says the package is at the local depot"}, "7": {"frustrated": "they marked question four wrong even though my answer matches the official solution word for word", "anxious": "exam results come out at eight tomorrow and I need a B to keep the scholarship, what happens if I don't get it", "happy": "I got the top mark in the year, how do I tell my old maths teacher", "neutral": "the exam results are out, the final grade is averaged over four modules"}, "8": {"frustrated": "the team meeting got moved again, for the fifth time this month, with no reason given", "anxious": "my manager moved our one to one to tomorrow and added HR to the invite, what does that usually mean", "happy": "the meeting got moved so I can make my daughter's school play after all, what's a good gift for her", "neutral": "the team meeting got moved from tuesday to wednesday at ten"}, "9": {"frustrated": "the new laptop arrived with the wrong keyboard layout and support wants me to ship it back at my cost", "anxious": "the new laptop won't turn on and my thesis files were supposed to go on it today, can they be recovered", "happy": "the new laptop is so fast the whole project builds in seconds, which extensions should I install first", "neutral": "the new laptop arrived today, it has 16 gigabytes of memory and a 1 terabyte drive"}, "10": {"frustrated": "the clinic cancelled my appointment the morning of, after I took the day off work for it", "anxious": "the specialist said to bring someone with me on friday, why would they say that", "happy": "the physio says I can start running again next week, how should I ease back in", "neutral": "I have a specialist appointment on friday at the hospital outpatient wing"}, "11": {"frustrated": "the reset link expired again before the email even arrived, how many times do I have to do this", "anxious": "I got a password reset email I didn't ask for and can't log into my bank account, what should I do right now", "happy": "got back into my old account and the photos from 2015 are still there, how do I back them all up", "neutral": "the recovery email on my old account is no longer active"}, "12": {"frustrated": "the school sent the report card home with someone else's grades on it, second term in a row", "anxious": "my son's teacher wants a meeting about his report card and didn't say why, what could it be about", "happy": "my son is the most improved reader in his class, can you suggest some books for his age", "neutral": "my son's report card uses a scale from 1 to 4 for each subject"}, "13": {"frustrated": "I paid for the garage to fix the rattle and it came back the same afternoon", "anxious": "is it safe to drive tomorrow with the kids, the car started making a grinding noise when I brake", "happy": "the mechanic fixed the noise for free, what's a nice gesture to show him it meant a lot", "neutral": "the car makes a grinding noise when braking at low speed"}, "14": {"frustrated": "the bank charged me a late fee on rent I paid three days early, and the app shows it as paid", "anxious": "rent is due monday and the transfer from my last job hasn't come through, what can I do", "happy": "rent is covered for three months and I still have money left over, how should I split the rest", "neutral": "rent is due monday and I pay it by bank transfer"}, "15": {"frustrated": "the reviewer left the same comment on my pull request that I already fixed two rounds ago", "anxious": "the senior engineer left forty comments on my first pull request, is that a bad sign", "happy": "my first pull request got merged with a comment that said really clean work, what should I take on next", "neutral": "the reviewer asked for smaller commits on my pull request"}, "16": {"frustrated": "my friend cancelled the visit again on the day, after I cleared my whole weekend", "anxious": "my friend is visiting this weekend and we haven't talked properly since the argument in june", "happy": "my best friend is flying in from lisbon this weekend, help me plan saturday", "neutral": "a friend is visiting this weekend, arriving saturday morning by train"}, "17": {"frustrated": "the repair shop cracked the screen again while replacing the battery and says it's not their fault", "anxious": "I dropped my phone and the screen is black, and my boarding pass is on it", "happy": "dropped my phone down the stairs and the screen survived without a scratch", "neutral": "the phone screen cracked in the corner and the touch still works"}, "18": {"frustrated": "my manager booked another call to discuss the plan we already agreed on twice", "anxious": "my manager asked for a quick call at five on a friday with no agenda", "happy": "the client asked for me by name on the next project, how should I prepare for the kickoff", "neutral": "my manager scheduled a call about project timelines for thursday"}, "19": {"frustrated": "I've followed the training plan to the letter for two months and my pace hasn't moved at all", "anxious": "the marathon is in ten days and my knee has been sore since sunday's long run", "happy": "ran twenty miles this morning and still had energy at the end, the marathon feels doable now", "neutral": "the marathon is in ten days and my longest run so far was twenty miles"}, "20": {"frustrated": "the tax office sent back my return for the second time over a box I filled in correctly", "anxious": "I got a letter from the tax office about my return and they want a reply within ten days", "happy": "the tax refund came through and it's double what I expected", "neutral": "I'm filing my tax return this month and I work from home three days a week"}, "21": {"frustrated": "why would a venue change the wedding menu without asking and then want more money for the original one", "anxious": "the wedding is in three weeks and half the guests still haven't replied", "happy": "we booked the venue for the wedding, the garden one we saw first", "neutral": "we're planning a wedding for 80 guests. what's a typical catering budget per head"}, "22": {"frustrated": "how do I get the provider to fix this, the internet dropped again during the client call, every afternoon this week", "anxious": "the internet is down and I have an online exam starting in forty minutes", "happy": "the new fibre line is in and the whole house finally has fast internet", "neutral": "the internet drops every afternoon. how do I check if it's the router or the provider"}, "23": {"frustrated": "why does the visa portal keep logging me out, it wiped the form for the third time today", "anxious": "the visa decision was due last week and my start date is in twelve days", "happy": "the visa got approved, I'm moving to toronto in march", "neutral": "what documents are usually needed for a skilled worker visa application"}, "24": {"frustrated": "what am I supposed to do on day one when nobody set up my account, I sat at a blank screen all morning", "anxious": "first day at the new job tomorrow and I don't know anyone or what I'll be working on", "happy": "first day at the new job was great, the team took me out for lunch", "neutral": "I start a new job on monday. what should I prepare for the first week"}, "25": {"frustrated": "how is it acceptable that the dentist kept me waiting ninety minutes and then rebooked me for next month", "anxious": "the dentist saw something on the x-ray and wants to do a biopsy", "happy": "the dentist says no cavities for the first time in years", "neutral": "how often should adults get a dental check up"}, "26": {"frustrated": "why does the printer say it's offline when it printed a test page a minute ago", "anxious": "the printer jammed and the signed contract has to be at the office by eight", "happy": "got the old printer working again, saved myself from buying a new one", "neutral": "the printer shows error code e3. what does that usually indicate"}, "27": {"frustrated": "can the movers really charge overtime when they showed up four hours late", "anxious": "we move out on friday and still haven't found a place for the cat", "happy": "we got the keys to the new flat, there's a balcony with a view of the river", "neutral": "we're moving apartments next month. make a checklist for the last week"}, "28": {"frustrated": "how do I stop people on the team replacing my slides with an old version, it happened again", "anxious": "I present to the whole board tomorrow morning and my voice keeps shaking when I practise", "happy": "the presentation went well and the board approved the budget on the spot", "neutral": "I present to the board tomorrow. how long should a ten slide deck take"}, "29": {"frustrated": "what are we even paying for, the vet ran tests and still has no idea what's wrong with the dog", "anxious": "the vet kept our dog overnight and said they'll call in the morning", "happy": "the vet says the lump on our dog was nothing, she's coming home today", "neutral": "our dog is going to the vet for vaccinations. which ones are needed yearly"}, "30": {"frustrated": "how do I deal with a funder that changed the grant deadline again and now wants a new budget format", "anxious": "the grant decision comes out today and the lab's funding depends on it", "happy": "we got the grant, three years of funding for the whole team", "neutral": "we're applying for a research grant. what goes into a data management plan"}, "31": {"frustrated": "why is the replacement battery already down to two hours, same as the one it replaced", "anxious": "the laptop battery is swelling and the trackpad is bulging, is it safe to keep using", "happy": "the new battery lasts a full day now, I can work from the park", "neutral": "how many charge cycles does a typical laptop battery last"}, "32": {"frustrated": "what do I say to a restaurant that lost our booking again on our anniversary", "anxious": "I booked a dinner to meet my partner's parents for the first time and I don't know what to talk about", "happy": "we got a table at the place with the six month waiting list", "neutral": "book a table for four on saturday. what's a polite way to mention a nut allergy"}, "33": {"frustrated": "why does every bank agent tell me something different about the frozen transfer", "anxious": "I sent the deposit for the flat to the account in the email and the bank says it's not the landlord's account", "happy": "the money from selling the car just landed in my account", "neutral": "how long does an international bank transfer usually take to clear"}, "34": {"frustrated": "how do I reply when my supervisor comments on the chapter I already rewrote", "anxious": "my supervisor wants to meet about the thesis draft and said we need to talk about the timeline", "happy": "my supervisor said the thesis draft is ready to submit", "neutral": "my thesis draft is 40,000 words. how should the discussion chapter be structured"}, "35": {"frustrated": "what keeps eating the seedlings every night no matter what I put around them", "anxious": "the tree in the yard is leaning toward the house after the storm", "happy": "the tomatoes are ripening and the garden is full of bees this year", "neutral": "how often should tomato plants be watered in summer"}, "36": {"frustrated": "the update broke my settings again and the rollback option is gone", "anxious": "the update got stuck at 40 percent and the laptop won't restart", "happy": "the update fixed the battery drain, the phone lasts two days now", "neutral": "what changed in the latest operating system update"}, "37": {"frustrated": "the baby is up every hour again and none of the sleep advice has worked", "anxious": "the baby has been unusually sleepy all day and won't take a bottle", "happy": "the baby slept through the night for the first time", "neutral": "how many hours of sleep does a six month old usually need"}, "38": {"frustrated": "the ticket site crashed at checkout and now the concert is sold out", "anxious": "the concert tickets haven't arrived and the show is tonight", "happy": "got front row tickets for the concert in june", "neutral": "how do resale ticket platforms verify tickets"}, "39": {"frustrated": "the formula you gave me returns #REF again, same as the last three versions", "anxious": "the spreadsheet totals don't match the invoice and I have to send the report to finance in an hour", "happy": "the spreadsheet now updates itself every morning, saves me an hour a day", "neutral": "what's the difference between VLOOKUP and INDEX MATCH in a spreadsheet"}, "40": {"frustrated": "my review says I need more visibility, the same as last year, with no idea what that means", "anxious": "my performance review is tomorrow and two people on my team were let go last month", "happy": "my performance review came back with the highest rating and a raise", "neutral": "my performance review is next week. how do I write a self assessment"}}}};
+const CLS = ["frustrated", "anxious", "happy", "neutral"];
+const SHAPE = {anxious:"circle", frustrated:"square", happy:"triangle", neutral:"diamond"};
+let speed = 1, runId = 0;
+const $ = s => document.querySelector(s);
+const pct = x => (100 * x).toFixed(1) + "%";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms / speed));
+const SCENES = ["clusters", "layers", "contrast", "end"];
+const col = c => `var(--${c})`;
+function shapePath(s, r){
+  if (s === "circle") return `M ${-r} 0 a ${r} ${r} 0 1 0 ${2*r} 0 a ${r} ${r} 0 1 0 ${-2*r} 0`;
+  if (s === "square") { const q = r*.88; return `M ${-q} ${-q} H ${q} V ${q} H ${-q} Z`; }
+  if (s === "triangle") { const q = r*1.15; return `M 0 ${-q} L ${q} ${q*.8} L ${-q} ${q*.8} Z`; }
+  const q = r*1.2; return `M 0 ${-q} L ${q} 0 L 0 ${q} L ${-q} 0 Z`;
+}
+const glyph = (c, r=5) => `<svg width="${2*r+4}" height="${2*r+4}" viewBox="${-r-2} ${-r-2} ${2*r+4} ${2*r+4}"><path d="${shapePath(SHAPE[c], r)}" fill="${col(c)}"/></svg>`;
+const tip = $("#tip");
+function showTip(h, ev){ tip.innerHTML = h; tip.style.opacity = 1; moveTip(ev); }
+function moveTip(ev){ const w = tip.offsetWidth, h = tip.offsetHeight; let x = ev.clientX + 14, y = ev.clientY + 14; if (x + w > innerWidth - 8) x = ev.clientX - w - 14; if (y + h > innerHeight - 8) y = ev.clientY - h - 14; tip.style.left = x + "px"; tip.style.top = y + "px"; }
+const hideTip = () => tip.style.opacity = 0;
+
+function show(id){
+  document.querySelectorAll(".scene").forEach(s => s.classList.toggle("on", s.id === id));
+  document.querySelectorAll(".step").forEach(s => {
+    const before = SCENES.indexOf(s.dataset.s) < SCENES.indexOf(id);
+    s.classList.toggle("on", s.dataset.s === id || before);
+    s.querySelector("b").style.width = before ? "100%" : (s.dataset.s === id ? s.querySelector("b").style.width : "0");
+  });
+}
+const progress = (id, f) => { document.querySelector(`.step[data-s="${id}"] b`).style.width = (100 * f) + "%"; };
+
+/* contrast scene: one situation, four emotions, what the held-out probe read for each */
+const KSIT = [[2,"A cancelled flight"],[13,"A noise from the car"],[22,"The internet keeps dropping"],[34,"The thesis draft"],[29,"The dog at the vet"],[8,"A meeting got moved"],[39,"A spreadsheet"],[26,"The printer"]];
+const KORDER = ["frustrated","anxious","happy","neutral"];
+async function readContrast(alive){
+  const C = D.contrast, n = KSIT.length; let right = 0, done = 0;
+  $("#k-ticker").innerHTML = Array.from({length: n*4}, () => "<span></span>").join(""); $("#k-score").innerHTML = "";
+  for (let k = 0; k < n; k++){
+    const [sid, title] = KSIT[k], rows = C.sit[sid];
+    $("#k-count").textContent = `Situation ${String(k + 1).padStart(2, "0")} / ${n}`;
+    $("#k-title").textContent = title;
+    $("#k-rows").innerHTML = KORDER.map(c => `<div class="krow" id="kr-${c}"><span class="key">${glyph(c, 5)}</span><span class="nm">${c}</span><span class="txt">${esc(rows[c])}</span><span class="read" id="kp-${c}"></span></div>`).join("");
+    progress("contrast", k / n);
+    for (const c of KORDER){ await sleep(260); if (!alive()) return; $("#kr-" + c).classList.add("on"); }
+    await sleep(900); if (!alive()) return;
+    for (const c of KORDER){
+      const miss = C.misses.find(m => m.sit === sid && m.true === c), pred = miss ? miss.pred : c, el = $("#kr-" + c);
+      $("#kp-" + c).innerHTML = `read as ${pred} ${miss ? "&#10007;" : "&#10003;"}`; el.classList.add("done", miss ? "no" : "ok");
+      const tk = $("#k-ticker").children[done++]; tk.style.background = miss ? "var(--ink)" : col(c); if (!miss) right++;
+      $("#k-score").innerHTML = `${right}/${done}<small>correct &middot; full set 151/160</small>`;
+      await sleep(380); if (!alive()) return;
+    }
+    await sleep(rows && C.misses.some(m => m.sit === sid) ? 3400 : 2200); if (!alive()) return;
+  }
+  progress("contrast", 1);
+}
+
+/* scene 2: accuracy by depth, easy set vs topic-matched set */
+function drawLayers(alive){
+  const W = 880, H = 340, m = {l:44, r:150, t:18, b:30}, n = D.real.length, M = D.contrast.grouped;
+  const x = i => m.l + (W - m.l - m.r) * i / (n - 1), y = v => m.t + (H - m.t - m.b) * (1 - v);
+  const bm = M.indexOf(Math.max(...M));
+  let s = "";
+  [0, .25, .5, .75, 1].forEach(v => s += `<line x1="${m.l}" x2="${W-m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--hair)"/><text x="${m.l-10}" y="${y(v)+4}" text-anchor="end">${v*100}%</text>`);
+  for (let i = 0; i < n; i += 4) s += `<text x="${x(i)}" y="${H-6}" text-anchor="middle">${i}</text>`;
+  s += `<text x="${W-m.r}" y="${H-6}" dx="22">layer</text>
+    <line x1="${m.l}" x2="${W-m.r}" y1="${y(D.text_baseline)}" y2="${y(D.text_baseline)}" stroke="var(--val)" stroke-dasharray="5 4" stroke-width="1.5" opacity=".9"/>
+    <text x="${W-m.r+8}" y="${y(D.text_baseline)+4}" style="fill:var(--ink-2)">words, easy 78%</text>
+    <line x1="${m.l}" x2="${W-m.r}" y1="${y(D.contrast.tfidf_grouped)}" y2="${y(D.contrast.tfidf_grouped)}" stroke="var(--val)" stroke-dasharray="2 3" stroke-width="1.5" opacity=".9"/>
+    <text x="${W-m.r+8}" y="${y(D.contrast.tfidf_grouped)+4}" style="fill:var(--ink-2)">words, matched 58%</text>
+    <line x1="${m.l}" x2="${W-m.r}" y1="${y(.25)}" y2="${y(.25)}" stroke="var(--ink-3)" stroke-dasharray="2 4"/>
+    <text x="${W-m.r+8}" y="${y(.25)+16}" style="fill:var(--ink-3)">chance 25%</text>
+    <g id="ph0" opacity="0" style="transition:opacity .5s"><text x="${x(0)+8}" y="${y(.25)+38}" style="fill:var(--ink-2)">layer 0 (embeddings): nothing to read yet</text></g>
+    <g id="ph1" opacity="0" style="transition:opacity .5s"><line x1="${x(1)}" x2="${x(1)+14}" y1="${y(D.real[1])+6}" y2="${y(.45)-4}" stroke="var(--ink-3)"/><text x="${x(1)+18}" y="${y(.45)}" style="fill:var(--ink-2)">easy set, one layer in: ${pct(D.real[1])} (mostly wording)</text></g>
+    <g id="ph3" opacity="0" style="transition:opacity .6s"><line x1="${x(bm)}" x2="${x(bm)}" y1="${y(M[bm])+6}" y2="${y(.86)-6}" stroke="var(--ink-3)"/><text x="${x(bm)}" y="${y(.86)+8}" text-anchor="middle" class="lbl">matched set peaks: ${pct(M[bm])} at layer ${bm}</text></g>
+    <path id="p-shuf" fill="none" stroke="var(--ref)" stroke-width="2" stroke-linejoin="round"/>
+    <path id="p-real" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path id="p-mat" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <g id="p-dots"></g><text id="l-real" class="lbl" style="fill:var(--accent)"></text><text id="l-mat" class="lbl"></text><text id="l-shuf" class="lbl" style="fill:var(--ink-3)"></text>
+    <rect id="hit" x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="transparent"/>`;
+  $("#chart").innerHTML = s;
+  const path = arr => "M" + arr.map(([i, v]) => x(i).toFixed(1) + "," + y(v).toFixed(1)).join("L");
+  const upto = (A, k, cur) => { const p = A.slice(0, k + 1).map((v,i)=>[i,v]); if (k + 1 < n) p.push([cur, A[k] + (cur - k) * (A[k+1] - A[k])]); return p; };
+  const hit = $("#hit"), svg = $("#chart");
+  hit.onmousemove = ev => { const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width; const i = Math.max(0, Math.min(n-1, Math.round((px - m.l) / ((W - m.l - m.r) / (n - 1))))); showTip(`<div class="t">layer ${i}</div>easy set ${pct(D.real[i])}<br>matched set ${pct(M[i])}<br>shuffled ${pct(D.shuffled[i])}`, ev); };
+  hit.onmouseleave = hideTip;
+  return new Promise(resolve => {
+    const t0 = performance.now(), dur = 6500 / speed;
+    function frame(now){
+      if (!alive()) return resolve();
+      const t = Math.min(1, (now - t0) / dur), cur = t * (n - 1), k = Math.floor(cur);
+      const pe = upto(D.real, k, cur), pm = upto(M, k, cur), ps = upto(D.shuffled, k, cur);
+      $("#p-real").setAttribute("d", path(pe)); $("#p-mat").setAttribute("d", path(pm)); $("#p-shuf").setAttribute("d", path(ps));
+      $("#p-dots").innerHTML = D.real.slice(0, k + 1).map((v,i) => `<circle cx="${x(i)}" cy="${y(v)}" r="2.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="1.5"/>`).join("")
+        + M.slice(0, k + 1).map((v,i) => `<circle cx="${x(i)}" cy="${y(v)}" r="${i===bm?4.5:2.5}" fill="var(--ink)" stroke="var(--bg)" stroke-width="1.5"/>`).join("");
+      const le = pe[pe.length-1], lm = pm[pm.length-1], ls = ps[ps.length-1];
+      $("#l-real").setAttribute("x", x(le[0]) + 10); $("#l-real").setAttribute("y", y(le[1]) - 4); $("#l-real").textContent = "easy set";
+      $("#l-mat").setAttribute("x", x(lm[0]) + 10); $("#l-mat").setAttribute("y", y(lm[1]) + 12); $("#l-mat").textContent = "matched set";
+      $("#l-shuf").setAttribute("x", x(ls[0]) + 10); $("#l-shuf").setAttribute("y", y(ls[1]) - 6); $("#l-shuf").textContent = "shuffled";
+      $("#r-layer").textContent = k; $("#r-acc").textContent = pct(D.real[k]); $("#r-mat").textContent = pct(M[k]); $("#r-shuf").textContent = pct(D.shuffled[k]);
+      $("#ph0").setAttribute("opacity", 1); if (k >= 1) $("#ph1").setAttribute("opacity", 1); if (k >= bm) $("#ph3").setAttribute("opacity", 1);
+      progress("layers", t);
+      if (t < 1) setTimeout(() => frame(performance.now()), 16); else resolve();
+    }
+    frame(performance.now());
+  });
+}
+
+/* scene 1: clusters across depth, with density halos and a clickable depth timeline */
+const LAYERS = Object.keys(D.pca).map(Number).sort((a,b)=>a-b);
+const NOTES = {
+  4:  "<b>Neutral and happy</b> already lean away from the rest. Frustrated and anxious are still one tangle.",
+  9:  "<b>Frustrated</b> starts to pull out of the tangle. Anxious and happy still share space.",
+  14: "<b>Frustrated</b> is out on its own and neutral is an island. The probe is already at 99% here.",
+  19: "Four groups, and the probe gets <b>every message right</b>. Some anxious and happy overlap only in this 2-D view.",
+  23: "<b>Neutral collapses</b> into a dense ball: “no emotional signal” is a state of its own.",
+  28: "The structure holds all the way to the <b>output layer</b>."
+};
+const SW = 880, SH = 360, SPAD = 28;
+let scatterBuilt = false, pts = [], curL = null, pausedOn = null;
+function buildScatter(){
+  const svg = $("#scatter"); svg.innerHTML = "";
+  const NS = "http://www.w3.org/2000/svg";
+  const gh = document.createElementNS(NS, "g"); svg.appendChild(gh);
+  CLS.forEach(c => { // 1.6-sigma density halo per class, drawn as a transformed unit circle
+    const e = document.createElementNS(NS, "ellipse"); e.setAttribute("rx", 1); e.setAttribute("ry", 1);
+    e.setAttribute("fill", col(c)); e.setAttribute("opacity", .13); e.setAttribute("class", "halo"); e.id = "h-" + c; gh.appendChild(e);
+  });
+  const order = D.labels.map((l,i)=>i).sort((a,b)=> (D.labels[b]==="neutral") - (D.labels[a]==="neutral"));
+  pts = order.map(i => {
+    const p = document.createElementNS(NS, "path");
+    p.setAttribute("d", shapePath(SHAPE[D.labels[i]], 5)); p.setAttribute("fill", col(D.labels[i]));
+    p.setAttribute("stroke", "var(--bg)"); p.setAttribute("stroke-width", "1.5"); p.style.cursor = "pointer";
+    p.addEventListener("mouseenter", ev => { p.setAttribute("stroke", "var(--ink)"); showTip(`<div class="t">${D.labels[i]} &middot; probe ${(100*D.p[i]).toFixed(0)}%</div>${esc(D.texts[i])}`, ev); });
+    p.addEventListener("mousemove", moveTip); p.addEventListener("mouseleave", () => { p.setAttribute("stroke", "var(--bg)"); hideTip(); });
+    svg.appendChild(p); return {p, i};
+  });
+  CLS.forEach(c => { const t = document.createElementNS(NS, "text"); t.setAttribute("class", "lbl"); t.setAttribute("text-anchor", "middle"); t.id = "cl-" + c; t.style.paintOrder = "stroke"; t.style.stroke = "var(--bg)"; t.style.strokeWidth = "4px"; t.style.fontSize = "13px"; t.textContent = c; svg.appendChild(t); });
+  $("#legend").innerHTML = ["anxious","frustrated","happy","neutral"].map(c => `<span>${glyph(c, 5)}${c}</span>`).join("");
+  buildTimeline(); scatterBuilt = true;
+}
+function buildTimeline(){
+  const W = 880, H = 96, m = {l:22, r:22, t:30, b:24}, n = D.real.length;
+  const x = i => m.l + (W - m.l - m.r) * i / (n - 1), y = v => m.t + (H - m.t - m.b) * (1 - v);
+  const line = "M" + D.real.map((v,i) => x(i).toFixed(1) + "," + y(v).toFixed(1)).join("L");
+  let s = `<line x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}" stroke="var(--hair)"/>
+    <path d="${line}L${x(n-1)},${H-m.b}L${x(0)},${H-m.b}Z" fill="var(--accent-soft)" opacity=".7"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+    <line id="tl-head" x1="0" x2="0" y1="${m.t-8}" y2="${H-m.b}" stroke="var(--ink)" stroke-width="1" style="transition:transform 1.1s cubic-bezier(.6,0,.2,1)"/>
+    <text x="${m.l}" y="12">probe accuracy by layer &middot; click a layer to jump</text><text x="${x(0)}" y="${H-6}" text-anchor="middle">L0</text>`;
+  LAYERS.forEach(L => s += `<g class="lk" data-l="${L}"><rect x="${x(L)-16}" y="0" width="32" height="${H}" fill="transparent"/>
+    <circle class="dot" cx="${x(L)}" cy="${y(D.real[L])}" r="3.5" fill="var(--accent)" stroke="var(--bg)" stroke-width="2"/>
+    <text x="${x(L)}" y="${H-6}" text-anchor="middle">L${L}</text></g>`);
+  $("#timeline").innerHTML = s;
+  $("#timeline").dataset.x = JSON.stringify(D.real.map((_,i)=>x(i)));
+  document.querySelectorAll("#timeline .lk").forEach(g => g.onclick = () => { runId++; pausedOn = +g.dataset.l; show("clusters"); placeScatter(pausedOn); });
+}
+function placeScatter(L){
+  curL = L; const Z = D.pca[L];
+  const xs = Z.map(z=>z[0]), ys = Z.map(z=>z[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const sx = v => SPAD + (v - x0) / (x1 - x0) * (SW - 2*SPAD), sy = v => SH - SPAD - (v - y0) / (y1 - y0) * (SH - 2*SPAD);
+  const dur = `${1.1/speed}s`;
+  pts.forEach(({p,i}) => { p.style.transition = `transform ${dur} cubic-bezier(.6,0,.2,1)`; p.style.transform = `translate(${sx(Z[i][0])}px,${sy(Z[i][1])}px)`; });
+  CLS.forEach(c => {
+    const P = D.labels.map((l,i)=>l===c?[sx(Z[i][0]), sy(Z[i][1])]:null).filter(Boolean), k = P.length;
+    const mx = P.reduce((a,q)=>a+q[0],0)/k, my = P.reduce((a,q)=>a+q[1],0)/k;
+    let a=0, b=0, d=0; P.forEach(([u,v]) => { a += (u-mx)**2; b += (u-mx)*(v-my); d += (v-my)**2; }); a/=k; b/=k; d/=k;
+    const tr = (a+d)/2, det = Math.sqrt(Math.max(0, ((a-d)/2)**2 + b*b)), l1 = tr + det, l2 = Math.max(tr - det, 1);
+    const ang = Math.atan2(l1 - a, b || 1e-9) * 180 / Math.PI, s1 = 1.6*Math.sqrt(l1), s2 = 1.6*Math.sqrt(l2);
+    const h = $("#h-" + c); h.style.transition = `transform ${dur} cubic-bezier(.6,0,.2,1)`;
+    h.style.transform = `translate(${mx}px,${my}px) rotate(${ang}deg) scale(${Math.max(s1,4)},${Math.max(s2,4)})`;
+    const t = $("#cl-" + c); t.style.transition = `transform ${dur} cubic-bezier(.6,0,.2,1)`; t.style.transform = `translate(${mx}px,${my - Math.min(s2, s1) - 8}px)`;
+  });
+  $("#c-layer").textContent = L; $("#c-acc").textContent = pct(D.real[L]);
+  const note = $("#c-note"); note.style.opacity = 0; setTimeout(() => { note.innerHTML = NOTES[L] || ""; note.style.opacity = 1; }, 200 / speed);
+  const xs2 = JSON.parse($("#timeline").dataset.x); $("#tl-head").style.transform = `translateX(${xs2[L]}px)`;
+  document.querySelectorAll("#timeline .lk").forEach(g => { const on = +g.dataset.l === L; g.classList.toggle("cur", on); g.querySelector(".dot").setAttribute("r", on ? 6 : 3.5); });
+}
+async function drawClusters(alive){
+  if (!scatterBuilt) buildScatter();
+  placeScatter(LAYERS[0]); progress("clusters", 0); await sleep(3200);
+  for (let k = 1; k < LAYERS.length; k++){
+    if (!alive()) return; placeScatter(LAYERS[k]); progress("clusters", k / (LAYERS.length - 1)); await sleep(LAYERS[k] === 19 ? 4200 : 3200);
+  }
+}
+
+async function play(from = "clusters"){
+  const id = ++runId, alive = () => id === runId, start = SCENES.indexOf(from);
+  document.querySelectorAll(".step b").forEach(b => b.style.width = "0");
+  if (start <= 0) { show("clusters"); await drawClusters(alive); await sleep(600); if (!alive()) return; }
+  if (start <= 1) { show("layers"); await drawLayers(alive); await sleep(2200); if (!alive()) return; }
+  if (start <= 2) { show("contrast"); await readContrast(alive); await sleep(900); if (!alive()) return; }
+  show("end"); progress("end", 1);
+}
+$("#e-shuf").textContent = Math.round(100 * D.contrast.grouped_shuf.slice(1).reduce((a,b)=>a+b,0) / (D.contrast.grouped_shuf.length - 1)) + "%";
+$("#replay").onclick = () => play();
+$("#speed").onclick = e => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; e.target.textContent = speed + "×"; };
+document.querySelectorAll(".step").forEach(s => s.onclick = () => play(s.dataset.s));
+/* pipeline animation: message -> layers -> state before replying -> one straight cut -> emotion */
+(function(){
+  const svg = document.getElementById("pipe"), NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, a = {}, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); parent.appendChild(e); return e; };
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const MSGS = [["frustrated", "third time asking this, still the same error"], ["anxious", "my results come back tomorrow morning"],
+                ["happy", "she said yes, we're getting married"], ["neutral", "what's the capital of australia"]];
+  const TARGET = {frustrated: [650, 95], anxious: [765, 92], happy: [770, 205], neutral: [655, 210]};
+  // captions
+  [[108, "a message"], [336, "read layer by layer"], [540, "state before replying"], [712, "one straight cut"]]
+    .forEach(([x, s]) => mk("text", {x, y: 280, "text-anchor": "middle", class: "cap2"}).textContent = s);
+  // arrows
+  const arrow = (x1, x2, y) => { mk("line", {x1, x2: x2 - 6, y1: y, y2: y, stroke: "var(--ink-3)", "stroke-width": 1.2}); mk("path", {d: `M${x2-7},${y-4} L${x2},${y} L${x2-7},${y+4}`, fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.2}); };
+  arrow(212, 240, 150); arrow(474, 512, 150); arrow(572, 610, 150);
+  // 1. message bubble
+  mk("rect", {x: 10, y: 112, width: 196, height: 76, rx: 14, fill: "var(--surface)", stroke: "var(--hair)"});
+  mk("path", {d: "M30,188 L26,200 L42,188", fill: "var(--surface)", stroke: "var(--hair)"}); mk("line", {x1: 30.5, x2: 41.5, y1: 188, y2: 188, stroke: "var(--surface)", "stroke-width": 2});
+  const l1 = mk("text", {x: 26, y: 143, class: "msg"}), l2 = mk("text", {x: 26, y: 165, class: "msg"});
+  // 2. layered sheets: columns = words, rows = numbers, one sheet per layer
+  const COLS = 7, ROWS = 9, CW = 15, CH = 11, SHEETS = 5, X0 = 258, Y0 = 118, DX = 15, DY = -10;
+  const sheets = [];
+  for (let s = 0; s < SHEETS; s++) {
+    const g = mk("g", {class: "fade", opacity: .25}), ox = X0 + s*DX, oy = Y0 + s*DY;
+    mk("rect", {x: ox - 4, y: oy - 4, width: COLS*CW + 6, height: ROWS*CH + 6, rx: 5, fill: "var(--bg)", stroke: "var(--hair)"}, g);
+    const cells = [];
+    for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++)
+      cells.push(mk("rect", {x: ox + c*CW, y: oy + r*CH, width: CW - 3, height: CH - 3, rx: 2, fill: "var(--hair)", style: "transition:fill .3s"}, g));
+    sheets.push({g, cells, ox, oy});
+  }
+  const last = sheets[SHEETS - 1];
+  const hl = mk("rect", {x: last.ox + (COLS-1)*CW - 3, y: last.oy - 3, width: CW + 3, height: ROWS*CH + 3, rx: 4, fill: "none", stroke: "var(--ink)", "stroke-width": 1.5, opacity: 0, class: "fade"});
+  // 3. the state vector
+  const vg = mk("g", {class: "mv", opacity: 0}); const vcells = [];
+  for (let r = 0; r < ROWS; r++) vcells.push(mk("rect", {x: 534, y: 101 + r*CH, width: CW - 3, height: CH - 3, rx: 2, fill: "var(--hair)"}, vg));
+  // 4. probe plane: two straight cuts, four regions
+  const PX = 612, PY = 46, PS = 200;
+  mk("rect", {x: PX, y: PY, width: PS, height: PS, rx: 10, fill: "var(--surface)", stroke: "var(--hair)"});
+  const regions = {frustrated: `M${PX},${PY} L${PX+96},${PY} L${PX+106},${PY+PS/2+6} L${PX},${PY+PS/2-4} Z`,
+                   anxious: `M${PX+96},${PY} L${PX+PS},${PY} L${PX+PS},${PY+PS/2+14} L${PX+106},${PY+PS/2+6} Z`,
+                   happy: `M${PX+106},${PY+PS/2+6} L${PX+PS},${PY+PS/2+14} L${PX+PS},${PY+PS} L${PX+114},${PY+PS} Z`,
+                   neutral: `M${PX},${PY+PS/2-4} L${PX+106},${PY+PS/2+6} L${PX+114},${PY+PS} L${PX},${PY+PS} Z`};
+  const reg = {}; for (const c in regions) reg[c] = mk("path", {d: regions[c], fill: `var(--${c})`, opacity: .1, class: "fade"});
+  [["frustrated", PX+10, PY+20, "start"], ["anxious", PX+PS-10, PY+20, "end"], ["neutral", PX+10, PY+PS-12, "start"], ["happy", PX+PS-10, PY+PS-12, "end"]]
+    .forEach(([c, x, y, an]) => mk("text", {x, y, "text-anchor": an, class: "cap2"}).textContent = c);
+  mk("line", {x1: PX, y1: PY+PS/2-4, x2: PX+PS, y2: PY+PS/2+14, stroke: "var(--ink-2)", "stroke-width": 1.5});
+  mk("line", {x1: PX+96, y1: PY, x2: PX+114, y2: PY+PS, stroke: "var(--ink-2)", "stroke-width": 1.5});
+  // faint past dots, so the plane slowly fills in
+  const pastG = mk("g");
+  const dot = mk("circle", {r: 7, cx: 0, cy: 0, fill: "var(--ink)", stroke: "var(--bg)", "stroke-width": 2.5, class: "mv", opacity: 0});
+  const chip = mk("text", {x: PX + PS/2, y: 30, "text-anchor": "middle", class: "chip fade", opacity: 0});
+  const wrap = s => { const w = s.split(" "); let a = "", b = ""; for (const x of w) ((a + " " + x).trim().length <= 22 && !b) ? a = (a + " " + x).trim() : b = (b + " " + x).trim(); return [a, b]; };
+  let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  async function run(){
+    for (let k = 0; ; k = (k + 1) % MSGS.length) {
+      const [emo, text] = MSGS[k], [a, b] = wrap(text);
+      // reset
+      sheets.forEach(s => { s.g.setAttribute("opacity", .25); s.cells.forEach(c => c.setAttribute("fill", "var(--hair)")); });
+      hl.setAttribute("opacity", 0); vg.setAttribute("opacity", 0); vg.style.transform = "";
+      dot.setAttribute("opacity", 0); chip.setAttribute("opacity", 0); for (const c in reg) reg[c].setAttribute("opacity", .1);
+      l1.textContent = ""; l2.textContent = "";
+      // type the message
+      for (let i = 1; i <= a.length; i++) { l1.textContent = a.slice(0, i); await wait(22); }
+      for (let i = 1; i <= b.length; i++) { l2.textContent = b.slice(0, i); await wait(22); }
+      await wait(350);
+      // layers light up front to back, one word column at a time on the first sheet
+      for (let s = 0; s < SHEETS; s++) {
+        const sh = sheets[s]; sh.g.setAttribute("opacity", 1);
+        for (let c = 0; c < COLS; c++) {
+          for (let r = 0; r < ROWS; r++) sh.cells[c*ROWS + r].setAttribute("fill", `color-mix(in srgb, var(--accent) ${Math.round(12 + 70*rnd())}%, var(--bg))`);
+          if (s === 0) await wait(55);
+        }
+        await wait(s === 0 ? 120 : 190);
+        if (s < SHEETS - 1) sh.g.setAttribute("opacity", .55);
+      }
+      // keep the last word's column of the deepest layer
+      hl.setAttribute("opacity", 1); await wait(450);
+      vcells.forEach((v, r) => v.setAttribute("fill", last.cells[(COLS-1)*ROWS + r].getAttribute("fill")));
+      vg.style.transition = "none"; vg.style.transform = `translate(${last.ox + (COLS-1)*CW - 534}px, ${last.oy - 101}px)`; vg.setAttribute("opacity", 1);
+      await wait(30); vg.style.transition = ""; vg.style.transform = "translate(0,0)"; await wait(1000);
+      // collapse into a point and drop it into the plane
+      const [tx, ty] = TARGET[emo], jx = (rnd() - .5) * 26, jy = (rnd() - .5) * 26;
+      dot.style.transition = "none"; dot.style.transform = `translate(540px, 150px)`; dot.setAttribute("opacity", 1); dot.setAttribute("fill", "var(--ink)");
+      vg.setAttribute("opacity", 0); await wait(40);
+      dot.style.transition = ""; dot.style.transform = `translate(${tx + jx}px, ${ty + jy}px)`; await wait(900);
+      dot.setAttribute("fill", `var(--${emo})`); reg[emo].setAttribute("opacity", .28);
+      chip.textContent = emo; chip.style.fill = `var(--ink)`; chip.setAttribute("opacity", 1);
+      mk("circle", {cx: tx + jx, cy: ty + jy, r: 3.5, fill: `var(--${emo})`, opacity: .55}, pastG);
+      if (pastG.childNodes.length > 24) pastG.removeChild(pastG.firstChild);
+      await wait(2000);
+    }
+  }
+  run();
+})();
+
+// table in the note
+const rowsT = [[0,"embeddings only"],[1,""],[4,""],[9,""],[14,""],[19,"easy set first 100%"],[22,"matched set peak"],[28,"final layer"]];
+$("#tbl").innerHTML = `<tr><th>Layer</th><th></th><th>Easy set</th><th>Matched set</th><th>Shuffled</th></tr>` + rowsT.map(([l,n]) => `<tr><td>${l}</td><td style="color:var(--ink-3);font-family:var(--sans);font-size:13px">${n}</td><td>${pct(D.real[l])}</td><td>${pct(D.contrast.grouped[l])}</td><td>${pct(D.shuffled[l])}</td></tr>`).join("") + `<tr><td>Word-count baseline</td><td></td><td>${pct(D.text_baseline)}</td><td>${pct(D.contrast.tfidf_grouped)}</td><td></td></tr>`;
+(function(){
+  const stage = document.querySelector(".stage"); let started = false;
+  const go = () => { if (!started) { started = true; play(); } };
+  if ("IntersectionObserver" in window) new IntersectionObserver((es, o) => { if (es.some(e => e.isIntersecting)) { go(); o.disconnect(); } }, {threshold: .35}).observe(stage);
+  else go();
+})();
+</script>
+</body></html>

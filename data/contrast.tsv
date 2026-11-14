@@ -1,0 +1,160 @@
+1	frustrated	the build failed on the same step again, the fourth run in a row, and nothing in the log has changed
+1	anxious	the build failed right before the release cutoff, is there any way to fix it before tonight
+1	happy	the build passed on the first try after a week of red runs, can you help me write up what fixed it
+1	neutral	the build failed on the linking step with exit code 137 after the dependency update
+2	frustrated	why does the airline keep cancelling this flight, this is the third time they've moved me
+2	anxious	my flight got cancelled and I have to be at my sister's wedding by tomorrow noon, what are my options
+2	happy	the airline put me on a direct flight that lands earlier after the cancellation, what should I do with the extra afternoon
+2	neutral	my flight got cancelled and the airline offered a rebooking on a partner carrier for tomorrow
+3	frustrated	the landlord replied to my email about the leak with a copy of the lease, again, without answering anything
+3	anxious	the landlord emailed asking to talk about the lease and didn't say what about. could it be about the renewal
+3	happy	the landlord says the rent stays the same and the kitchen gets redone in spring, can you help me write a nice reply
+3	neutral	the landlord emailed about the lease renewal, the new term starts in august
+4	frustrated	the lab lost my blood sample so now I have to go back and do the whole thing over next week
+4	anxious	the doctor wants to go over my blood test results in person on monday, what could that mean
+4	happy	every number on the blood test is in the normal range now, what's a good way to celebrate with friends
+4	neutral	my blood test results list ferritin at 45 and vitamin d at 60
+5	frustrated	they rescheduled my interview for the third time, an hour before it was meant to start
+5	anxious	the interview is tomorrow at nine and I keep blanking on tell me about yourself, how do I get through it
+5	happy	the interview went really well and they want me back thursday, how should I prepare to meet the team
+5	neutral	I have an interview tomorrow at nine for a data analyst role
+6	frustrated	the tracking page has said out for delivery for five days and the courier line just hangs up on me
+6	anxious	the package with my passport hasn't arrived and I fly out on saturday, what can I do
+6	happy	the package arrived a day early and the gift is even nicer than the photos, can you help me write the card
+6	neutral	the tracking page says the package is at the local depot
+7	frustrated	they marked question four wrong even though my answer matches the official solution word for word
+7	anxious	exam results come out at eight tomorrow and I need a B to keep the scholarship, what happens if I don't get it
+7	happy	I got the top mark in the year, how do I tell my old maths teacher
+7	neutral	the exam results are out, the final grade is averaged over four modules
+8	frustrated	the team meeting got moved again, for the fifth time this month, with no reason given
+8	anxious	my manager moved our one to one to tomorrow and added HR to the invite, what does that usually mean
+8	happy	the meeting got moved so I can make my daughter's school play after all, what's a good gift for her
+8	neutral	the team meeting got moved from tuesday to wednesday at ten
+9	frustrated	the new laptop arrived with the wrong keyboard layout and support wants me to ship it back at my cost
+9	anxious	the new laptop won't turn on and my thesis files were supposed to go on it today, can they be recovered
+9	happy	the new laptop is so fast the whole project builds in seconds, which extensions should I install first
+9	neutral	the new laptop arrived today, it has 16 gigabytes of memory and a 1 terabyte drive
+10	frustrated	the clinic cancelled my appointment the morning of, after I took the day off work for it
+10	anxious	the specialist said to bring someone with me on friday, why would they say that
+10	happy	the physio says I can start running again next week, how should I ease back in
+10	neutral	I have a specialist appointment on friday at the hospital outpatient wing
+11	frustrated	the reset link expired again before the email even arrived, how many times do I have to do this
+11	anxious	I got a password reset email I didn't ask for and can't log into my bank account, what should I do right now
+11	happy	got back into my old account and the photos from 2015 are still there, how do I back them all up
+11	neutral	the recovery email on my old account is no longer active
+12	frustrated	the school sent the report card home with someone else's grades on it, second term in a row
+12	anxious	my son's teacher wants a meeting about his report card and didn't say why, what could it be about
+12	happy	my son is the most improved reader in his class, can you suggest some books for his age
+12	neutral	my son's report card uses a scale from 1 to 4 for each subject
+13	frustrated	I paid for the garage to fix the rattle and it came back the same afternoon
+13	anxious	is it safe to drive tomorrow with the kids, the car started making a grinding noise when I brake
+13	happy	the mechanic fixed the noise for free, what's a nice gesture to show him it meant a lot
+13	neutral	the car makes a grinding noise when braking at low speed
+14	frustrated	the bank charged me a late fee on rent I paid three days early, and the app shows it as paid
+14	anxious	rent is due monday and the transfer from my last job hasn't come through, what can I do
+14	happy	rent is covered for three months and I still have money left over, how should I split the rest
+14	neutral	rent is due monday and I pay it by bank transfer
+15	frustrated	the reviewer left the same comment on my pull request that I already fixed two rounds ago
+15	anxious	the senior engineer left forty comments on my first pull request, is that a bad sign
+15	happy	my first pull request got merged with a comment that said really clean work, what should I take on next
+15	neutral	the reviewer asked for smaller commits on my pull request
+16	frustrated	my friend cancelled the visit again on the day, after I cleared my whole weekend
+16	anxious	my friend is visiting this weekend and we haven't talked properly since the argument in june
+16	happy	my best friend is flying in from lisbon this weekend, help me plan saturday
+16	neutral	a friend is visiting this weekend, arriving saturday morning by train
+17	frustrated	the repair shop cracked the screen again while replacing the battery and says it's not their fault
+17	anxious	I dropped my phone and the screen is black, and my boarding pass is on it
+17	happy	dropped my phone down the stairs and the screen survived without a scratch
+17	neutral	the phone screen cracked in the corner and the touch still works
+18	frustrated	my manager booked another call to discuss the plan we already agreed on twice
+18	anxious	my manager asked for a quick call at five on a friday with no agenda
+18	happy	the client asked for me by name on the next project, how should I prepare for the kickoff
+18	neutral	my manager scheduled a call about project timelines for thursday
+19	frustrated	I've followed the training plan to the letter for two months and my pace hasn't moved at all
+19	anxious	the marathon is in ten days and my knee has been sore since sunday's long run
+19	happy	ran twenty miles this morning and still had energy at the end, the marathon feels doable now
+19	neutral	the marathon is in ten days and my longest run so far was twenty miles
+20	frustrated	the tax office sent back my return for the second time over a box I filled in correctly
+20	anxious	I got a letter from the tax office about my return and they want a reply within ten days
+20	happy	the tax refund came through and it's double what I expected
+20	neutral	I'm filing my tax return this month and I work from home three days a week
+21	frustrated	why would a venue change the wedding menu without asking and then want more money for the original one
+21	anxious	the wedding is in three weeks and half the guests still haven't replied
+21	happy	we booked the venue for the wedding, the garden one we saw first
+21	neutral	we're planning a wedding for 80 guests. what's a typical catering budget per head
+22	frustrated	how do I get the provider to fix this, the internet dropped again during the client call, every afternoon this week
+22	anxious	the internet is down and I have an online exam starting in forty minutes
+22	happy	the new fibre line is in and the whole house finally has fast internet
+22	neutral	the internet drops every afternoon. how do I check if it's the router or the provider
+23	frustrated	why does the visa portal keep logging me out, it wiped the form for the third time today
+23	anxious	the visa decision was due last week and my start date is in twelve days
+23	happy	the visa got approved, I'm moving to toronto in march
+23	neutral	what documents are usually needed for a skilled worker visa application
+24	frustrated	what am I supposed to do on day one when nobody set up my account, I sat at a blank screen all morning
+24	anxious	first day at the new job tomorrow and I don't know anyone or what I'll be working on
+24	happy	first day at the new job was great, the team took me out for lunch
+24	neutral	I start a new job on monday. what should I prepare for the first week
+25	frustrated	how is it acceptable that the dentist kept me waiting ninety minutes and then rebooked me for next month
+25	anxious	the dentist saw something on the x-ray and wants to do a biopsy
+25	happy	the dentist says no cavities for the first time in years
+25	neutral	how often should adults get a dental check up
+26	frustrated	why does the printer say it's offline when it printed a test page a minute ago
+26	anxious	the printer jammed and the signed contract has to be at the office by eight
+26	happy	got the old printer working again, saved myself from buying a new one
+26	neutral	the printer shows error code e3. what does that usually indicate
+27	frustrated	can the movers really charge overtime when they showed up four hours late
+27	anxious	we move out on friday and still haven't found a place for the cat
+27	happy	we got the keys to the new flat, there's a balcony with a view of the river
+27	neutral	we're moving apartments next month. make a checklist for the last week
+28	frustrated	how do I stop people on the team replacing my slides with an old version, it happened again
+28	anxious	I present to the whole board tomorrow morning and my voice keeps shaking when I practise
+28	happy	the presentation went well and the board approved the budget on the spot
+28	neutral	I present to the board tomorrow. how long should a ten slide deck take
+29	frustrated	what are we even paying for, the vet ran tests and still has no idea what's wrong with the dog
+29	anxious	the vet kept our dog overnight and said they'll call in the morning
+29	happy	the vet says the lump on our dog was nothing, she's coming home today
+29	neutral	our dog is going to the vet for vaccinations. which ones are needed yearly
+30	frustrated	how do I deal with a funder that changed the grant deadline again and now wants a new budget format
+30	anxious	the grant decision comes out today and the lab's funding depends on it
+30	happy	we got the grant, three years of funding for the whole team
+30	neutral	we're applying for a research grant. what goes into a data management plan
+31	frustrated	why is the replacement battery already down to two hours, same as the one it replaced
+31	anxious	the laptop battery is swelling and the trackpad is bulging, is it safe to keep using
+31	happy	the new battery lasts a full day now, I can work from the park
+31	neutral	how many charge cycles does a typical laptop battery last
+32	frustrated	what do I say to a restaurant that lost our booking again on our anniversary
+32	anxious	I booked a dinner to meet my partner's parents for the first time and I don't know what to talk about
+32	happy	we got a table at the place with the six month waiting list
+32	neutral	book a table for four on saturday. what's a polite way to mention a nut allergy
+33	frustrated	why does every bank agent tell me something different about the frozen transfer
+33	anxious	I sent the deposit for the flat to the account in the email and the bank says it's not the landlord's account
+33	happy	the money from selling the car just landed in my account
+33	neutral	how long does an international bank transfer usually take to clear
+34	frustrated	how do I reply when my supervisor comments on the chapter I already rewrote
+34	anxious	my supervisor wants to meet about the thesis draft and said we need to talk about the timeline
+34	happy	my supervisor said the thesis draft is ready to submit
+34	neutral	my thesis draft is 40,000 words. how should the discussion chapter be structured
+35	frustrated	what keeps eating the seedlings every night no matter what I put around them
+35	anxious	the tree in the yard is leaning toward the house after the storm
+35	happy	the tomatoes are ripening and the garden is full of bees this year
+35	neutral	how often should tomato plants be watered in summer
+36	frustrated	the update broke my settings again and the rollback option is gone
+36	anxious	the update got stuck at 40 percent and the laptop won't restart
+36	happy	the update fixed the battery drain, the phone lasts two days now
+36	neutral	what changed in the latest operating system update
+37	frustrated	the baby is up every hour again and none of the sleep advice has worked
+37	anxious	the baby has been unusually sleepy all day and won't take a bottle
+37	happy	the baby slept through the night for the first time
+37	neutral	how many hours of sleep does a six month old usually need
+38	frustrated	the ticket site crashed at checkout and now the concert is sold out
+38	anxious	the concert tickets haven't arrived and the show is tonight
+38	happy	got front row tickets for the concert in june
+38	neutral	how do resale ticket platforms verify tickets
+39	frustrated	the formula you gave me returns #REF again, same as the last three versions
+39	anxious	the spreadsheet totals don't match the invoice and I have to send the report to finance in an hour
+39	happy	the spreadsheet now updates itself every morning, saves me an hour a day
+39	neutral	what's the difference between VLOOKUP and INDEX MATCH in a spreadsheet
+40	frustrated	my review says I need more visibility, the same as last year, with no idea what that means
+40	anxious	my performance review is tomorrow and two people on my team were let go last month
+40	happy	my performance review came back with the highest rating and a raise
+40	neutral	my performance review is next week. how do I write a self assessment

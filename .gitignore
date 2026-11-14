@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+results/activations_last_token.npy
+figures/
+.ipynb_checkpoints/
